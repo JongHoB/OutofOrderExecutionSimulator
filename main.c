@@ -24,6 +24,49 @@ void issue(){
 }
 
 void dispatch(){
+    // If DI contains a dispatch bundle:
+    // If the number of free IQ entries is less than the size of
+    // the dispatch bundle in DI, then do nothing. If the number of
+    // free IQ entries is greater than or equal to the size of the
+    // dispatch bundle in DI, then dispatch all instructions from
+    // DI to the IQ.
+    if(NR_DI>IQ_SIZE-NR_IQ){
+        return;
+    }
+    int NR_ADVANCE=NR_DI;
+    for(int i=0;i<NR_DI;i++){
+        IQ[NR_IQ].inst=DI[i].inst;
+        IQ[NR_IQ].src1=DI[i].inst->phy_src1_register;
+        IQ[NR_IQ].src2=DI[i].inst->phy_src2_register;
+        
+        if(Ready_Table[IQ[NR_IQ].src1]==NO){
+            IQ[NR_IQ].src1_BIT=NO;
+        }
+        else{
+            IQ[NR_IQ].src1_BIT=YES;
+        }
+        
+        if(Ready_Table[IQ[NR_IQ].src2]==NO){
+            IQ[NR_IQ].src2_BIT=NO;
+        }
+        else{
+            IQ[NR_IQ].src1_BIT=YES;
+        }
+        
+        if(DI[i].inst->phy_dest_register!=-1){
+            IQ[NR_IQ].dest=DI[i].inst->phy_dest_register;
+            Ready_Table[IQ[NR_IQ].dest]=NO;
+        }
+        else{
+            IQ[NR_IQ].dest=-1;           
+        }
+     
+        IQ[NR_IQ].birthday=NR_IQ;
+
+        NR_IQ++;
+        NR_DI--;
+    }
+
 
 }
 
@@ -55,6 +98,9 @@ void rename(){
             RN[i].inst->phy_dest_register=Free_List.list[MAX_Free_List-Free_List.count];
             Rename_Map_Table[RN[i].inst->dest_register]=RN[i].inst->phy_dest_register;
             Free_List.count--;
+        }
+        else{
+            RN[i].inst->phy_dest_register=-1;
         }
         DI[i].inst=RN[i].inst;
         NR_DI++;
@@ -157,7 +203,9 @@ void init(){
     IQ=(IQ*)malloc(sizeof(IQ)*IQ_SIZE);
     ROB=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
     for(int i=1;i<=NR_REGS;i++){
-        Rename_Map_Table[i]=i;
+        Rename_Map_Table[i]=i;   
+    }
+    for(int i=1;i<=MAX_PHYSICAL_REGS;i++){
         Ready_Table[i]=YES;
     }
     for(int i=NR_REGS+1;i<=MAX_PHYSICAL_REGS;i++){
@@ -231,17 +279,9 @@ int main(int argc, char **argv){
     // properly handle the dependent instructions.
     issue();
 
-    // If DI contains a dispatch bundle:
-    // If the number of free IQ entries is less than the size of
-    // the dispatch bundle in DI, then do nothing. If the number of
-    // free IQ entries is greater than or equal to the size of the
-    // dispatch bundle in DI, then dispatch all instructions from
-    // DI to the IQ.
     dispatch();
 
-
     rename();
-
 
     decode();
     
