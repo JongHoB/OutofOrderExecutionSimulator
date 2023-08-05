@@ -1,10 +1,145 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "main.h"
+
+void commit(){
+
+}
+
+void writeback(){
+
+}
+
+void execute(){
+
+}
+
+void regRead(){
+
+}
+
+void issue(){
+
+}
+
+void dispatch(){
+
+}
+
+void rename(){
+
+}
+
+void decode(){
+
+}
+
+void fetch(){
+    // Do nothing if
+    // (1) there are no more instructions in the trace file or
+    // (2) DE is not empty (cannot accept a new decode bundle)
+    if(NR_DE>=WIDTH){
+        return;
+    }
+    if(EOF){
+        return;
+    }
+
+    // If there are more instructions in the trace file and if DE
+    // is empty (can accept a new decode bundle), then fetch up to
+    // WIDTH instructions from the trace file into DE. Fewer than
+    // WIDTH instructions will be fetched and allocated in the ROB
+    // only if
+    // (1) the trace file has fewer than WIDTH instructions left.
+    // (2) the ROB has fewer spaces than WIDTH.
+    for(int i=0;i<WIDTH&&NR_DE<WIDTH&&NR_ROB<ROB_SIZE;i++){
+        char PC_STRING[10];
+        intstuction *inst=(intstuction*)malloc(sizeof(intstuction));
+
+        //check if the trace file has fewer than WIDTH instructions left.
+        if(fscanf(tracefile,"%s %d %d %d %d",PC_STRING,&inst->operation_type,&inst->dest_register,&inst->src1_register,&inst->src2_register)!=EOF){
+            inst->PC=strtol(PC_STRING,NULL,16);
+
+            DE[NR_DE].inst=inst;
+            NR_DE++;
+            
+            ROB[NR_ROB].inst=inst;
+            ROB[NR_ROB].Done_BIT=NO;
+            NR_ROB++;
+
+        }
+        else{
+            IS_EOF=TRUE;
+            break;
+        }
+
+    }
+
+    
+
+}
+
+void advance_cycle(){
+
+}
+
+void init(){
+    CYCLE=0;
+    CURRENT_PC=0;
+    FETCH_BIT=TRUE;
+    INSTRUCTION_COUNT=0;
+    IS_EOF=FALSE;
+
+    NR_DE=0;
+    NR_RN=0;
+    NR_RN=0;
+    NR_DI=0;
+    NR_RR=0;
+    NR_execute_list=0;
+    NR_WB=0;
+    NR_IQ=0;
+    NR_ROB=0;
+
+    Free_List.count=0;
+    DE=(DE*)malloc(sizeof(DE)*WIDTH);
+    RN=(RN*)malloc(sizeof(RN)*WIDTH);
+    DI=(DI*)malloc(sizeof(DI)*WIDTH);
+    RR=(RR*)malloc(sizeof(RR)*WIDTH);
+    execute_list=(execute_list*)malloc(sizeof(execute_list)*WIDTH*5);
+    WB=(WB*)malloc(sizeof(WB)*WIDTH*5);
+    IQ=(IQ*)malloc(sizeof(IQ)*IQ_SIZE);
+    ROB=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
+    for(int i=1;i<=NR_REGS;i++){
+        Rename_Map_Table[i]=i;
+        Ready_Table[i]=YES;
+    }
+    for(int i=NR_REGS+1;i<=MAX_PHYSICAL_REGS;i++){
+        Free_List.count++;
+        Free_List.list[i-NR_REGS]=i;
+    }
+}
 
 
 int main(int argc, char **argv){
 
+    if(argc!=5){
+        printf("Usage: ./cse561sim <ROB_SIZE> <IQ_SIZE> <WIDTH> <tracefile>\n");
+        exit(1);
+    }
+    ROB_SIZE=atoi(argv[1]);
+    IQ_SIZE=atoi(argv[2]);
+    WIDTH=atoi(argv[3]);
+
+    // Open the trace file
+    tracefile=fopen(argv[4],"r");
+    if(tracefile==NULL){
+        printf("Invalid tracefile name: %s\n",argv[4]);
+        exit(1);
+    }
+
+    // Initialize the simulator
+    init();
 
     do{
     // Commit up to WIDTH consecutive “ready” instructions from
