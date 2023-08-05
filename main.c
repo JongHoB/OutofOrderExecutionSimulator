@@ -32,6 +32,18 @@ void rename(){
 }
 
 void decode(){
+    // If DE contains a decode bundle:
+    // If RN is not empty (cannot accept a new rename bundle), then
+    // do nothing. If RN is empty (can accept a new rename bundle),
+    // then advance the decode bundle from DE to RN.
+    if(NR_RN){
+        return;
+    }
+    int NR_ADVANCE=NR_DE;
+    for(int i=0;i<NR_ADVANCE;i++){
+        RN[i]=DE[i];
+        NR_DE--;
+    }
 
 }
 
@@ -211,23 +223,9 @@ int main(int argc, char **argv){
     // are in program order).
     rename();
 
-    // If DE contains a decode bundle:
-    // If RN is not empty (cannot accept a new rename bundle), then
-    // do nothing. If RN is empty (can accept a new rename bundle),
-    // then advance the decode bundle from DE to RN.
+
     decode();
     
-    // Do nothing if
-    // (1) there are no more instructions in the trace file or
-    // (2) DE is not empty (cannot accept a new decode bundle)
-    //
-    // If there are more instructions in the trace file and if DE
-    // is empty (can accept a new decode bundle), then fetch up to
-    // WIDTH instructions from the trace file into DE. Fewer than
-    // WIDTH instructions will be fetched and allocated in the ROB
-    // only if
-    // (1) the trace file has fewer than WIDTH instructions left.
-    // (2) the ROB has fewer spaces than WIDTH.
     fetch();
    
     }while(advance_cycle());
