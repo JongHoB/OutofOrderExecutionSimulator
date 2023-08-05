@@ -4,6 +4,7 @@
 
 #define NR_REGS 67
 #define MAX_PHYSICAL_REGS NR_REGS*2
+#define MAX_Free_List   MAX_PHYSICAL_REGS-NR_REGS
 
 #define YES 1
 #define NO 0
@@ -37,6 +38,7 @@ typedef struct{
 extern list Free_List;
 
 
+
 extern int Rename_Map_Table[NR_REGS+1];//Arch_Reg -> Physical_Reg
 extern int Ready_Table[MAX_PHYSICAL_REGS+1];//Physical_Reg -> yes/no
 
@@ -48,6 +50,9 @@ typedef struct{
     int dest_register;
     int src1_register;
     int src2_register;
+    int phy_dest_register;
+    int phy_src1_register;
+    int phy_src2_register;
 }instruction;
 
 /////////////////////////////////////////////////////////

@@ -28,7 +28,38 @@ void dispatch(){
 }
 
 void rename(){
-
+    // If RN contains a rename bundle:
+    // If either DI is not empty (cannot accept a new register-read
+    // bundle) then do nothing. If DI is empty (can accept a new
+    // dispatch bundle), then process (see below) the rename
+    // bundle and advance it from RN to DI.
+    //
+    // How to process the rename bundle:
+    // Apply your learning from the class lectures/notes on the
+    // steps for renaming:
+    // (1) Rename its source registers, and
+    // (2) Rename its destination register (if it has one). If you
+    // are not sure how to implement the register renaming, apply
+    // the algorithm that you’ve learned from lectures and notes.
+    // Note that the rename bundle must be renamed in program
+    // order. Fortunately, the instructions in the rename bundle
+    // are in program order).
+    if(NR_DI){
+        return;
+    }
+    int NR_ADVANCE=NR_RN;
+    for(int i=0;i<NR_ADVANCE;i++){
+        RN[i].inst->phy_src1_register=Rename_Map_Table[RN[i].inst->src1_register];
+        RN[i].inst->phy_src2_register=Rename_Map_Table[RN[i].inst->src2_register];
+        if(RN[i].inst->dest_register!=-1){
+            RN[i].inst->phy_dest_register=Free_List.list[MAX_Free_List-Free_List.count];
+            Rename_Map_Table[RN[i].inst->dest_register]=RN[i].inst->phy_dest_register;
+            Free_List.count--;
+        }
+        DI[i].inst=RN[i].inst;
+        NR_DI++;
+        NR_RN--;
+    }
 }
 
 void decode(){
@@ -41,8 +72,9 @@ void decode(){
     }
     int NR_ADVANCE=NR_DE;
     for(int i=0;i<NR_ADVANCE;i++){
-        RN[i]=DE[i];
+        RN[i].inst=DE[i].inst;
         NR_DE--;
+        NR_RN++;
     }
 
 }
@@ -79,6 +111,8 @@ void fetch(){
             ROB[NR_ROB].inst=inst;
             ROB[NR_ROB].Done_BIT=NO;
             NR_ROB++;
+
+            INSTRUCTION_COUNT++;
 
         }
         else{
@@ -205,22 +239,7 @@ int main(int argc, char **argv){
     // DI to the IQ.
     dispatch();
 
-    // If RN contains a rename bundle:
-    // If either DI is not empty (cannot accept a new register-read
-    // bundle) then do nothing. If DI is empty (can accept a new
-    // dispatch bundle), then process (see below) the rename
-    // bundle and advance it from RN to DI.
-    //
-    // How to process the rename bundle:
-    // Apply your learning from the class lectures/notes on the
-    // steps for renaming:
-    // (1) Rename its source registers, and
-    // (2) Rename its destination register (if it has one). If you
-    // are not sure how to implement the register renaming, apply
-    // the algorithm that you’ve learned from lectures and notes.
-    // Note that the rename bundle must be renamed in program
-    // order. Fortunately, the instructions in the rename bundle
-    // are in program order).
+
     rename();
 
 
