@@ -12,7 +12,29 @@ void writeback(){
 }
 
 void execute(){
+    // From the execute_list, check for instructions that are
+    // finishing execution this cycle, and:
+    // 1) Remove the instruction from the execute_list.
+    // 2) Add the instruction to WB.
+    int NR_ADVANCE=NR_execute_list;
+    for(int i=0;i<NR_ADVANCE&&NR_WB<WIDTH*5;i++){
+        if(excute_list[i].cycles>0)
+            {excute_list[i].cycles--;}
+        if(execute_list[i].cycles==0){
+            WB[NR_WB++].inst=execute_list[i].inst;
+            Ready_Table[IQ[i].dest]=YES;
+            NR_execute_list--;
+        }
+    }
 
+    execute_list * temp=(execute_list*)malloc(sizeof(execute_list)*WIDTH*5);
+    int tempidx=0;
+    for(int i=0;i<NR_ADVANCE;i++){
+        if(execute_list[i].cycles>0){
+            temp[tempidx++]=execute_list[i];
+        }
+    }
+    excute_list=temp;
 }
 
 void regRead(){
@@ -57,7 +79,6 @@ void issue(){
         //Remove the instruction from the IQ
         if(IQ[i].src1_BIT==YES && IQ[i].src2_BIT==YES){
             IQ[i].READY=YES;
-            Ready_Table[IQ[i].dest]=YES;
             RR[NR_RR++].inst=IQ[i].inst;
             NR_IQ--;
         }
@@ -81,6 +102,7 @@ void issue(){
             temp[tempidx++]=IQ[i];
         }
     }
+
     IQ=temp;
 }
 
@@ -306,10 +328,6 @@ int main(int argc, char **argv){
     // WB, mark the instruction as “ready” in its entry in the ROB.
     writeback();
 
-    // From the execute_list, check for instructions that are
-    // finishing execution this cycle, and:
-    // 1) Remove the instruction from the execute_list.
-    // 2) Add the instruction to WB.
     execute();
 
     regRead();
