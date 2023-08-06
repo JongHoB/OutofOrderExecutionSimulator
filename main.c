@@ -316,8 +316,7 @@ void advance_cycle(){
     if(IS_EOF==TRUE||NR_ROB==0){
         return false;
     }
-
-
+    return true;
 }
 
 void init(){
