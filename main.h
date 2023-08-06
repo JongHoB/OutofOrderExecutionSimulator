@@ -115,6 +115,7 @@ typedef struct{
     int src2_BIT;
     int dest;
     int birthday;
+    int READY;
 }IQ;
 extern int NR_IQ;
 

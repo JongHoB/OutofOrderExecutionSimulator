@@ -20,7 +20,50 @@ void regRead(){
 }
 
 void issue(){
+    // Issue up to WIDTH oldest instructions from the IQ. (One
+    // approach to implement oldest-first issuing is to make
+    // multiple passes through the IQ, each time finding the next
+    // oldest ready instruction and then issuing it. One way to
+    // annotate the age of an instruction is to assign an
+    // incrementing sequence number to each instruction as it is
+    // fetched from the trace file.)
+    //
+    // To issue an instruction:
+    // 1) Remove the instruction from the IQ.
+    // 2) Wakeup dependent instructions (set their source operand
+    // ready flags) in the IQ, so that in the next cycle IQ should
+    // properly handle the dependent instructions.
 
+    int NR_INSTRUCTION=NR_IQ;
+    for(int i=0;i<NR_INSTRUCTION;i++){
+        //Remove the instruction from the IQ
+        if(IQ[i].src1_BIT==YES && IQ[i].src2_BIT==YES){
+            IQ[i].READY=YES;
+            Ready_Table[IQ[i].dest]=YES;
+            RR[NR_RR++].inst=IQ[i].inst;
+            NR_IQ--;
+        }
+        else{
+            //Wakeup dependent instruction
+            IQ[i].READY=NO;
+            if(Ready_Table[IQ[i].src1]==YES){
+                IQ[i].src1_BIT=YES;
+            }
+            if(Ready_Table[IQ[i].src2]==YES){
+                IQ[i].src2_BIT=YES;
+            }
+        }
+    }
+    
+    //Sort the IQ
+    IQ *temp=(IQ*)malloc(sizeof(IQ)*IQ_SIZE);
+    int tempidx=0;
+    for(int i=0;i<NR_INSTRUCTION;i++){
+        if(IQ[i].READY==NO&&tempidx<NR_IQ){
+            temp[tempidx++]=IQ[i];
+        }
+    }
+    IQ=temp;
 }
 
 void dispatch(){
@@ -264,19 +307,6 @@ int main(int argc, char **argv){
     // allow you to model its execution latency.
     regRead();
 
-    // Issue up to WIDTH oldest instructions from the IQ. (One
-    // approach to implement oldest-first issuing is to make
-    // multiple passes through the IQ, each time finding the next
-    // oldest ready instruction and then issuing it. One way to
-    // annotate the age of an instruction is to assign an
-    // incrementing sequence number to each instruction as it is
-    // fetched from the trace file.)
-    //
-    // To issue an instruction:
-    // 1) Remove the instruction from the IQ.
-    // 2) Wakeup dependent instructions (set their source operand
-    // ready flags) in the IQ, so that in the next cycle IQ should
-    // properly handle the dependent instructions.
     issue();
 
     dispatch();
