@@ -4,6 +4,28 @@
 #include "main.h"
 
 void commit(){
+    // Commit up to WIDTH consecutive “ready” instructions from
+    // the head of the ROB. Note that the entry of ROB should be
+    // retired in the right order.
+    int NR_ADVANCE=NR_ROB;
+    int MODIFY_BIT=-1;
+    for(int i=0;i<WIDTH;i++){
+        if(ROB[i].Done_BIT==NO){
+            break;
+        }
+        MODIFY_BIT=i;
+        NR_ROB--;
+    }
+
+    //Sort the ROB
+    if(MODIFY_BIT>-1){
+        ROB *temp=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
+        int tempidx=0;
+        for(int i=MODIFY_BIT+1;i<=MODIFY_BIT+NR_ROB;i++){
+            temp[tempidx++]=ROB[i];
+        }
+        ROB=temp;
+    }
 
 }
 
@@ -348,9 +370,6 @@ int main(int argc, char **argv){
     init();
 
     do{
-    // Commit up to WIDTH consecutive “ready” instructions from
-    // the head of the ROB. Note that the entry of ROB should be
-    // retired in the right order.
     commit();
 
     writeback();
