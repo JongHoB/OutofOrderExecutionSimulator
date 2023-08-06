@@ -8,7 +8,29 @@ void commit(){
 }
 
 void writeback(){
+    // Process the writeback bundle in WB: For each instruction in
+    // WB, mark the instruction as “ready” in its entry in the ROB.
+    int NR_ADVANCE=NR_WB;
+    for(int i=0;i<NR_ADVANCE;i++){
+        for(int j=0;j<NR_ROB;j++){
+            if(ROB[j].inst==WB[i].inst){
+                ROB[j].Done_BIT=YES;
+                WB[i].Done_BIT=YES;
+                break;
+            }
+        }
+        NR_WB--;
+    }
 
+    //sort the WB
+    WB *temp=(WB*)malloc(sizeof(WB)*WIDTH*5);
+    int tempidx=0;
+    for(int i=0;i<NR_ADVANCE;i++){
+        if(WB[i].Done_BIT==NO&&tempidx<NR_WB){
+            temp[tempidx++]=WB[i];
+        }
+    }
+    WB=temp;
 }
 
 void execute(){
@@ -21,16 +43,18 @@ void execute(){
         if(excute_list[i].cycles>0)
             {excute_list[i].cycles--;}
         if(execute_list[i].cycles==0){
+            WB[NR_WB].Done_BIT=NO;
             WB[NR_WB++].inst=execute_list[i].inst;
             Ready_Table[IQ[i].dest]=YES;
             NR_execute_list--;
         }
     }
 
+    //Sort the execute list
     execute_list * temp=(execute_list*)malloc(sizeof(execute_list)*WIDTH*5);
     int tempidx=0;
     for(int i=0;i<NR_ADVANCE;i++){
-        if(execute_list[i].cycles>0){
+        if(execute_list[i].cycles>0&&tempidx<NR_execute_list){
             temp[tempidx++]=execute_list[i];
         }
     }
@@ -178,6 +202,11 @@ void rename(){
         RN[i].inst->phy_src1_register=Rename_Map_Table[RN[i].inst->src1_register];
         RN[i].inst->phy_src2_register=Rename_Map_Table[RN[i].inst->src2_register];
         if(RN[i].inst->dest_register!=-1){
+            for(int j=0;j<NR_ROB;j++){
+                if(ROB[j].inst==RN[i].inst){
+                    ROB[j].To_Free_Reg=Rename_Map_Table[RN[i].inst->dest_register];
+                }
+            }
             RN[i].inst->phy_dest_register=Free_List.list[MAX_Free_List-Free_List.count];
             Rename_Map_Table[RN[i].inst->dest_register]=RN[i].inst->phy_dest_register;
             Free_List.count--;
@@ -324,8 +353,6 @@ int main(int argc, char **argv){
     // retired in the right order.
     commit();
 
-    // Process the writeback bundle in WB: For each instruction in
-    // WB, mark the instruction as “ready” in its entry in the ROB.
     writeback();
 
     execute();

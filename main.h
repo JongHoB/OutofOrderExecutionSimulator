@@ -98,7 +98,7 @@ extern int NR_execute_list;
 //Pipeline register between the Execute and Writeback stages
 typedef struct{
     instruction *inst;
-
+    int Done_BIT;
 }WB;
 extern int NR_WB;
 
