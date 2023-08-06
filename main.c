@@ -8,16 +8,26 @@ void commit(){
     // the head of the ROB. Note that the entry of ROB should be
     // retired in the right order.
     int NR_ADVANCE=NR_ROB;
+    if(NR_ADVANCE==0){
+        return;
+    }
     int MODIFY_BIT=-1;
     for(int i=0;i<WIDTH;i++){
         if(ROB[i].Done_BIT==NO){
             break;
         }
+        if(ROB[i].inst->phy_dest_register!=-1){
+            Free_List.list[Free_list.count++]=ROB[i].To_Free_Reg;
+        }
+        ROB[i].inst->cycles[9]=CYCLE+1;//end cycle
+
+        printf("%d fu{%d} src{%d,%d} dst{%d} FE{%d,%d} DE{%d,%d} RN{%d,%d} DI{%d,%d} IS{%d,%d} RR{%d,%d} EX{%d,%d} WB{%d,%d} CM{%d,%d}\n",INSTRUCTION_COUNT++,ROB[i].inst->operation_type,ROB[i].inst->src1_register,ROB[i].inst->src2_register,ROB[i].inst->dest_register,ROB[i].inst->cycles[0],ROB[i].inst->cycles[1]-ROB[i].inst->cycles[0],ROB[i].inst->cycles[1],ROB[i].inst->cycles[2]-ROB[i].inst->cycles[1],ROB[i].inst->cycles[2],ROB[i].inst->cycles[3]-ROB[i].inst->cycles[2],ROB[i].inst->cycles[3],ROB[i].inst->cycles[4]-ROB[i].inst->cycles[3],ROB[i].inst->cycles[4],ROB[i].inst->cycles[5]-ROB[i].inst->cycles[4],ROB[i].inst->cycles[5],ROB[i].inst->cycles[6]-ROB[i].inst->cycles[5],ROB[i].inst->cycles[6],ROB[i].inst->cycles[7]-ROB[i].inst->cycles[6],ROB[i].inst->cycles[7],ROB[i].inst->cycles[8]-ROB[i].inst->cycles[7],ROB[i].inst->cycles[8],ROB[i].inst->cycles[9]-ROB[i].inst->cycles[8]);
+
         MODIFY_BIT=i;
         NR_ROB--;
     }
 
-    //Sort the ROB
+    //Print and Sort the ROB
     if(MODIFY_BIT>-1){
         ROB *temp=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
         int tempidx=0;
@@ -33,11 +43,15 @@ void writeback(){
     // Process the writeback bundle in WB: For each instruction in
     // WB, mark the instruction as “ready” in its entry in the ROB.
     int NR_ADVANCE=NR_WB;
+    if(NR_ADVANCE==0){
+        return;
+    }
     for(int i=0;i<NR_ADVANCE;i++){
         for(int j=0;j<NR_ROB;j++){
             if(ROB[j].inst==WB[i].inst){
                 ROB[j].Done_BIT=YES;
                 WB[i].Done_BIT=YES;
+                WB[i].inst->cycles[8]=CYCLE+1;//commit start cycle
                 break;
             }
         }
@@ -61,13 +75,20 @@ void execute(){
     // 1) Remove the instruction from the execute_list.
     // 2) Add the instruction to WB.
     int NR_ADVANCE=NR_execute_list;
+    if(NR_ADVANCE==0){
+        return;
+    }
     for(int i=0;i<NR_ADVANCE&&NR_WB<WIDTH*5;i++){
         if(excute_list[i].cycles>0)
             {excute_list[i].cycles--;}
         if(execute_list[i].cycles==0){
             WB[NR_WB].Done_BIT=NO;
+            execute_list[i].inst->cycles[7]=CYCLE+1;//writeback start cycle
             WB[NR_WB++].inst=execute_list[i].inst;
-            Ready_Table[IQ[i].dest]=YES;
+            if(IQ[i].dest!=-1)
+            {
+                Ready_Table[IQ[i].dest]=YES;
+            }
             NR_execute_list--;
         }
     }
@@ -97,8 +118,12 @@ void regRead(){
     // timer for the instruction in the execute_list that will
     // allow you to model its execution latency.
     int NR_ADVANCE=NR_RR;
+    if(NR_ADVANCE==0){
+        return;
+    }
     for(int i=0;i<NR_ADVANCE&&NR_execute_list<WIDTH*5;i++) {
         execute_list[NR_execute_list].inst=RR[i].inst;
+        execute_list[NR_execute_list].inst->cycles[6]=CYCLE+1;//execute start cycle
         execute_list[NR_execute_list++].cycles=Operation_Cycle[RR[i].inst->operation_type];
         NR_RR--;
     }
@@ -121,20 +146,24 @@ void issue(){
     // properly handle the dependent instructions.
 
     int NR_INSTRUCTION=NR_IQ;
+    if(NR_INSTRUCTION==0){
+        return;
+    }
     for(int i=0;i<NR_INSTRUCTION&&NR_RR<WIDTH;i++){
         //Remove the instruction from the IQ
         if(IQ[i].src1_BIT==YES && IQ[i].src2_BIT==YES){
             IQ[i].READY=YES;
+            IQ[i].inst->cycles[5]=CYCLE+1;//regRead start cycle
             RR[NR_RR++].inst=IQ[i].inst;
             NR_IQ--;
         }
         else{
             //Wakeup dependent instruction
             IQ[i].READY=NO;
-            if(Ready_Table[IQ[i].src1]==YES){
+            if(IQ[i].src1==-1||Ready_Table[IQ[i].src1]==YES){
                 IQ[i].src1_BIT=YES;
             }
-            if(Ready_Table[IQ[i].src2]==YES){
+            if(IQ[i].src2==-1||Ready_Table[IQ[i].src2]==YES){
                 IQ[i].src2_BIT=YES;
             }
         }
@@ -163,23 +192,29 @@ void dispatch(){
         return;
     }
     int NR_ADVANCE=NR_DI;
+    if(NR_ADVANCE==0){
+        return;
+    }
     for(int i=0;i<NR_DI;i++){
+
         IQ[NR_IQ].inst=DI[i].inst;
+        IQ[NR_IQ].inst->cycles[4]=CYCLE+1;//issue start cycle
+
         IQ[NR_IQ].src1=DI[i].inst->phy_src1_register;
         IQ[NR_IQ].src2=DI[i].inst->phy_src2_register;
-        
-        if(Ready_Table[IQ[NR_IQ].src1]==NO){
+
+        if(IQ[NR_IQ].src1==-1||Ready_Table[IQ[NR_IQ].src1]==YES){
+            IQ[NR_IQ].src1_BIT=YES;
+        }
+        else{
             IQ[NR_IQ].src1_BIT=NO;
         }
-        else{
-            IQ[NR_IQ].src1_BIT=YES;
+
+        if(IQ[NR_IQ].src2==-1||Ready_Table[IQ[NR_IQ].src2]==YES){
+            IQ[NR_IQ].src2_BIT=YES;
         }
-        
-        if(Ready_Table[IQ[NR_IQ].src2]==NO){
+        else{
             IQ[NR_IQ].src2_BIT=NO;
-        }
-        else{
-            IQ[NR_IQ].src1_BIT=YES;
         }
         
         if(DI[i].inst->phy_dest_register!=-1){
@@ -220,23 +255,46 @@ void rename(){
         return;
     }
     int NR_ADVANCE=NR_RN;
+    if(NR_RN==0){
+        return;
+    }
     for(int i=0;i<NR_ADVANCE;i++){
-        RN[i].inst->phy_src1_register=Rename_Map_Table[RN[i].inst->src1_register];
-        RN[i].inst->phy_src2_register=Rename_Map_Table[RN[i].inst->src2_register];
+        if(RN[i].inst->src1_register!=-1){
+            RN[i].inst->phy_src1_register=Rename_Map_Table[RN[i].inst->src1_register];
+        }
+        else{
+            RN[i].inst->phy_src1_register=-1;
+        }
+        if(RN[i].inst->src2_register!=-1)
+        {
+            RN[i].inst->phy_src2_register=Rename_Map_Table[RN[i].inst->src2_register];
+        }
+        else{
+            RN[i].inst->phy_src2_register=-1;
+        }
+            
         if(RN[i].inst->dest_register!=-1){
             for(int j=0;j<NR_ROB;j++){
                 if(ROB[j].inst==RN[i].inst){
                     ROB[j].To_Free_Reg=Rename_Map_Table[RN[i].inst->dest_register];
                 }
             }
-            RN[i].inst->phy_dest_register=Free_List.list[MAX_Free_List-Free_List.count];
-            Rename_Map_Table[RN[i].inst->dest_register]=RN[i].inst->phy_dest_register;
+
+            RN[i].inst->phy_dest_register=Free_List.list[0];
+            for(int i=1;i<Free_List.count;i++){
+                Free_List.list[i-1]=Free_List.list[i];
+            }
             Free_List.count--;
+
+            Rename_Map_Table[RN[i].inst->dest_register]=RN[i].inst->phy_dest_register;            
         }
         else{
             RN[i].inst->phy_dest_register=-1;
         }
+
         DI[i].inst=RN[i].inst;
+        DI[i].inst->cycles[3]=CYCLE;//dispatch start cycle
+        
         NR_DI++;
         NR_RN--;
     }
@@ -251,8 +309,12 @@ void decode(){
         return;
     }
     int NR_ADVANCE=NR_DE;
+    if(NR_ADVANCE==0){
+        return;
+    }
     for(int i=0;i<NR_ADVANCE;i++){
         RN[i].inst=DE[i].inst;
+        RN[i].inst->cycles[2]=CYCLE+1;//rename start cycle
         NR_DE--;
         NR_RN++;
     }
@@ -285,14 +347,15 @@ void fetch(){
         if(fscanf(tracefile,"%s %d %d %d %d",PC_STRING,&inst->operation_type,&inst->dest_register,&inst->src1_register,&inst->src2_register)!=EOF){
             inst->PC=strtol(PC_STRING,NULL,16);
 
+            inst->cycles[0]=CYCLE;//fetch start cycle
+            inst->cycles[1]=CYCLE+1;//decode start cycle
+
             DE[NR_DE].inst=inst;
             NR_DE++;
             
             ROB[NR_ROB].inst=inst;
             ROB[NR_ROB].Done_BIT=NO;
             NR_ROB++;
-
-            INSTRUCTION_COUNT++;
 
         }
         else{
@@ -313,7 +376,7 @@ void advance_cycle(){
     // trace is depleted, the function returns “false” to terminate
     // the loop.
     CYCLE++;
-    if(IS_EOF==TRUE||NR_ROB==0){
+    if(IS_EOF==TRUE&&NR_ROB==0){
         return false;
     }
     return true;
@@ -345,13 +408,13 @@ void init(){
     WB=(WB*)malloc(sizeof(WB)*WIDTH*5);
     IQ=(IQ*)malloc(sizeof(IQ)*IQ_SIZE);
     ROB=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
-    for(int i=1;i<=NR_REGS;i++){
+    for(int i=0;i<NR_REGS;i++){
         Rename_Map_Table[i]=i;   
     }
-    for(int i=1;i<=MAX_PHYSICAL_REGS;i++){
+    for(int i=0;i<MAX_PHYSICAL_REGS;i++){
         Ready_Table[i]=YES;
     }
-    for(int i=NR_REGS+1;i<=MAX_PHYSICAL_REGS;i++){
+    for(int i=NR_REGS;i<MAX_PHYSICAL_REGS;i++){
         Free_List.count++;
         Free_List.list[i-NR_REGS]=i;
     }
@@ -398,7 +461,18 @@ int main(int argc, char **argv){
     fetch();
    
     }while(advance_cycle());
-                    
+
+    printf("# === Simulator Command =========\n");
+    printf("# ./cse561sim %d %d %d %s\n", ROB_SIZE, IQ_SIZE, WIDTH, argv[4]);
+    printf("# === Processor Configuration ===\n");
+    printf("# ROB_SIZE = %d\n", ROB_SIZE);
+    printf("# IQ_SIZE = %d\n", IQ_SIZE);
+    printf("# WIDTH = %d\n", WIDTH);
+    printf("# === Simulation Results ========\n");
+    printf("# Dynamic Instruction Count = %d\n", INSTRUCTION_COUNT);
+    printf("# Cycles = %d\n", CYCLE);
+    printf("# Instructions Per Cycle (IPC) = %.2f\n", (double)INSTRUCTION_COUNT / (double)CYCLE);
+           
     return 0;
 
 }

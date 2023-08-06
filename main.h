@@ -48,11 +48,12 @@ typedef struct{
     int PC;
     int operation_type;
     int dest_register;
-    int src1_register;
-    int src2_register;
+    unsigned char src1_register;
+    unsigned char src2_register;
     int phy_dest_register;
-    int phy_src1_register;
-    int phy_src2_register;
+    unsigned char phy_src1_register;
+    unsigned char phy_src2_register;
+    int cycles[10];//cycle time for each stage
 }instruction;
 
 /////////////////////////////////////////////////////////
