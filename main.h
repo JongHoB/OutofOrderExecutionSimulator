@@ -91,7 +91,7 @@ extern int NR_RR;
 //as well as all sub‐pipeline stages within each function unit
 typedef struct{
     instruction *inst;
-
+    int cycles;
 }execute_list;
 extern int NR_execute_list;
 

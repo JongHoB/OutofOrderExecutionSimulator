@@ -16,6 +16,24 @@ void execute(){
 }
 
 void regRead(){
+    // If RR contains a register-read bundle:
+    // then process (see below) the register-read bundle up to
+    // WIDTH instructions and advance it from RR to execute_list.
+    //
+    // How to process the register-read bundle:
+    // Since values are not explicitly modeled, the sole purpose of
+    // the Register Read stage is to pass the information of each
+    // instruction in the register-read bundle (e.g. the renamed
+    // source operands and operation type).
+    // Aside from adding the instruction to the execute_list, set a 
+    // timer for the instruction in the execute_list that will
+    // allow you to model its execution latency.
+    int NR_ADVANCE=NR_RR;
+    for(int i=0;i<NR_ADVANCE&&NR_execute_list<WIDTH*5;i++) {
+        execute_list[NR_execute_list].inst=RR[i].inst;
+        execute_list[NR_execute_list++].cycles=Operation_Cycle[RR[i].inst->operation_type];
+        NR_RR--;
+    }
 
 }
 
@@ -35,7 +53,7 @@ void issue(){
     // properly handle the dependent instructions.
 
     int NR_INSTRUCTION=NR_IQ;
-    for(int i=0;i<NR_INSTRUCTION;i++){
+    for(int i=0;i<NR_INSTRUCTION&&NR_RR<WIDTH;i++){
         //Remove the instruction from the IQ
         if(IQ[i].src1_BIT==YES && IQ[i].src2_BIT==YES){
             IQ[i].READY=YES;
@@ -294,17 +312,6 @@ int main(int argc, char **argv){
     // 2) Add the instruction to WB.
     execute();
 
-    // If RR contains a register-read bundle:
-    // then process (see below) the register-read bundle up to
-    // WIDTH instructions and advance it from RR to execute_list.
-    //
-    // How to process the register-read bundle:
-    // Since values are not explicitly modeled, the sole purpose of
-    // the Register Read stage is to pass the information of each
-    // instruction in the register-read bundle (e.g. the renamed
-    // source operands and operation type).
-    // Aside from adding the instruction to the execute_list, set a // timer for the instruction in the execute_list that will
-    // allow you to model its execution latency.
     regRead();
 
     issue();
