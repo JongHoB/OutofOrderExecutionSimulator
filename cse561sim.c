@@ -414,7 +414,7 @@ int advance_cycle(void){
     // trace is depleted, the function returns “false” to terminate
     // the loop.
     CYCLE++;
-    if(IS_EOF==TRUE){
+    if(IS_EOF==TRUE&&NR_ROB==0){
         return 0;
     }
     return 1;
