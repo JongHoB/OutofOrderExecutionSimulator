@@ -28,7 +28,7 @@ extern int INSTRUCTION_COUNT;
 extern int IS_EOF;
 
 // Operation Cycle for Operation Types
-extern int Operation_Cycle[3]={1,2,5};
+extern int Operation_Cycle[3];
 
 //Free list for Register Renaming operation
 typedef struct{
@@ -48,11 +48,11 @@ typedef struct{
     int PC;
     int operation_type;
     int dest_register;
-    unsigned char src1_register;
-    unsigned char src2_register;
+    int src1_register;
+    int src2_register;
     int phy_dest_register;
-    unsigned char phy_src1_register;
-    unsigned char phy_src2_register;
+    int phy_src1_register;
+    int phy_src2_register;
     int cycles[10];//cycle time for each stage
 }instruction;
 
@@ -63,28 +63,28 @@ typedef struct{
 typedef struct{
     instruction *inst;
 
-}DE;
+}DECODE;
 extern int NR_DE;
 
 //Pipeline register between the Decode and Rename stages
 typedef struct{
     instruction *inst;
 
-}RN;
+}RENAME;
 extern int NR_RN;
 
 //Pipeline register between the Rename and Dispatch stages
 typedef struct{
     instruction *inst;
 
-}DI;
+}DISPATCH;
 extern int NR_DI;
 
 //Pipeline register between the Issue and Register Read stages
 typedef struct{
     instruction *inst;
 
-}RR;
+}REGISTERREAD;
 extern int NR_RR;
 
 //execute_list represents the pipeline register between the
@@ -93,14 +93,14 @@ extern int NR_RR;
 typedef struct{
     instruction *inst;
     int cycles;
-}execute_list;
+}EXECUTE;
 extern int NR_execute_list;
 
 //Pipeline register between the Execute and Writeback stages
 typedef struct{
     instruction *inst;
     int Done_BIT;
-}WB;
+}WRITEBACK;
 extern int NR_WB;
 
 /////////////////////////////////////////////////////////
@@ -117,23 +117,35 @@ typedef struct{
     int dest;
     int birthday;
     int READY;
-}IQ;
+}ISSUEQUEUE;
 extern int NR_IQ;
 
 //Re-order Buffer - Holds instructions from Fetch through Commit
 //Queue guarantees an order of inst until Commit stages
 typedef struct{
     instruction * inst;
-    int TO_Free_Reg;
+    int To_Free_Reg;
     int Done_BIT;
-}ROB;
+}REORDERBUFFER;
 extern int NR_ROB;
 
-extern DE *DE;
-extern RN *RN;
-extern DI *DI;
-extern RR *RR;
-extern excute_list *excute_list;
-extern WB *WB;
-extern IQ *IQ;
-extern ROB *ROB;
+extern DECODE *DE;
+extern RENAME *RN;
+extern DISPATCH *DI;
+extern REGISTERREAD *RR;
+extern EXECUTE *execute_list;
+extern WRITEBACK *WB;
+extern ISSUEQUEUE *IQ;
+extern REORDERBUFFER *ROB;
+
+void commit(void);
+void writeback(void);
+void execute(void);
+void regRead(void);
+void issue(void);
+void dispatch(void);
+void rename(void);
+void decode(void);
+void fetch(void);
+int advance_cycle(void);
+void init(void);

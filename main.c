@@ -3,7 +3,7 @@
 
 #include "main.h"
 
-void commit(){
+void commit(void){
     // Commit up to WIDTH consecutive “ready” instructions from
     // the head of the ROB. Note that the entry of ROB should be
     // retired in the right order.
@@ -17,7 +17,7 @@ void commit(){
             break;
         }
         if(ROB[i].inst->phy_dest_register!=-1){
-            Free_List.list[Free_list.count++]=ROB[i].To_Free_Reg;
+            Free_List.list[Free_List.count++]=ROB[i].To_Free_Reg;
         }
         ROB[i].inst->cycles[9]=CYCLE+1;//end cycle
 
@@ -29,7 +29,7 @@ void commit(){
 
     //Print and Sort the ROB
     if(MODIFY_BIT>-1){
-        ROB *temp=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
+        REORDERBUFFER *temp=(REORDERBUFFER*)malloc(sizeof(REORDERBUFFER)*ROB_SIZE);
         int tempidx=0;
         for(int i=MODIFY_BIT+1;i<=MODIFY_BIT+NR_ROB;i++){
             temp[tempidx++]=ROB[i];
@@ -39,7 +39,7 @@ void commit(){
 
 }
 
-void writeback(){
+void writeback(void){
     // Process the writeback bundle in WB: For each instruction in
     // WB, mark the instruction as “ready” in its entry in the ROB.
     int NR_ADVANCE=NR_WB;
@@ -59,7 +59,7 @@ void writeback(){
     }
 
     //sort the WB
-    WB *temp=(WB*)malloc(sizeof(WB)*WIDTH*5);
+    WRITEBACK *temp=(WRITEBACK*)malloc(sizeof(WRITEBACK)*WIDTH*5);
     int tempidx=0;
     for(int i=0;i<NR_ADVANCE;i++){
         if(WB[i].Done_BIT==NO&&tempidx<NR_WB){
@@ -69,7 +69,7 @@ void writeback(){
     WB=temp;
 }
 
-void execute(){
+void execute(void){
     // From the execute_list, check for instructions that are
     // finishing execution this cycle, and:
     // 1) Remove the instruction from the execute_list.
@@ -79,8 +79,8 @@ void execute(){
         return;
     }
     for(int i=0;i<NR_ADVANCE&&NR_WB<WIDTH*5;i++){
-        if(excute_list[i].cycles>0)
-            {excute_list[i].cycles--;}
+        if(execute_list[i].cycles>0)
+            {execute_list[i].cycles--;}
         if(execute_list[i].cycles==0){
             WB[NR_WB].Done_BIT=NO;
             execute_list[i].inst->cycles[7]=CYCLE+1;//writeback start cycle
@@ -94,17 +94,17 @@ void execute(){
     }
 
     //Sort the execute list
-    execute_list * temp=(execute_list*)malloc(sizeof(execute_list)*WIDTH*5);
+    EXECUTE * temp=(EXECUTE*)malloc(sizeof(EXECUTE)*WIDTH*5);
     int tempidx=0;
     for(int i=0;i<NR_ADVANCE;i++){
         if(execute_list[i].cycles>0&&tempidx<NR_execute_list){
             temp[tempidx++]=execute_list[i];
         }
     }
-    excute_list=temp;
+    execute_list=temp;
 }
 
-void regRead(){
+void regRead(void){
     // If RR contains a register-read bundle:
     // then process (see below) the register-read bundle up to
     // WIDTH instructions and advance it from RR to execute_list.
@@ -130,7 +130,7 @@ void regRead(){
 
 }
 
-void issue(){
+void issue(void){
     // Issue up to WIDTH oldest instructions from the IQ. (One
     // approach to implement oldest-first issuing is to make
     // multiple passes through the IQ, each time finding the next
@@ -170,7 +170,7 @@ void issue(){
     }
     
     //Sort the IQ
-    IQ *temp=(IQ*)malloc(sizeof(IQ)*IQ_SIZE);
+    ISSUEQUEUE *temp=(ISSUEQUEUE*)malloc(sizeof(ISSUEQUEUE)*IQ_SIZE);
     int tempidx=0;
     for(int i=0;i<NR_INSTRUCTION;i++){
         if(IQ[i].READY==NO&&tempidx<NR_IQ){
@@ -181,7 +181,7 @@ void issue(){
     IQ=temp;
 }
 
-void dispatch(){
+void dispatch(void){
     // If DI contains a dispatch bundle:
     // If the number of free IQ entries is less than the size of
     // the dispatch bundle in DI, then do nothing. If the number of
@@ -234,7 +234,7 @@ void dispatch(){
 
 }
 
-void rename(){
+void rename(void){
     // If RN contains a rename bundle:
     // If either DI is not empty (cannot accept a new register-read
     // bundle) then do nothing. If DI is empty (can accept a new
@@ -300,7 +300,7 @@ void rename(){
     }
 }
 
-void decode(){
+void decode(void){
     // If DE contains a decode bundle:
     // If RN is not empty (cannot accept a new rename bundle), then
     // do nothing. If RN is empty (can accept a new rename bundle),
@@ -321,7 +321,7 @@ void decode(){
 
 }
 
-void fetch(){
+void fetch(void){
     // Do nothing if
     // (1) there are no more instructions in the trace file or
     // (2) DE is not empty (cannot accept a new decode bundle)
@@ -341,7 +341,7 @@ void fetch(){
     // (2) the ROB has fewer spaces than WIDTH.
     for(int i=0;i<WIDTH&&NR_DE<WIDTH&&NR_ROB<ROB_SIZE;i++){
         char PC_STRING[10];
-        intstuction *inst=(intstuction*)malloc(sizeof(intstuction));
+        instruction *inst=(instruction*)malloc(sizeof(instruction));
 
         //check if the trace file has fewer than WIDTH instructions left.
         if(fscanf(tracefile,"%s %d %d %d %d",PC_STRING,&inst->operation_type,&inst->dest_register,&inst->src1_register,&inst->src2_register)!=EOF){
@@ -369,7 +369,7 @@ void fetch(){
 
 }
 
-void advance_cycle(){
+int advance_cycle(void){
     // advance_cycle() performs several functions.
     // (1) It advances the simulator cycle.
     // (2) When it becomes known that the pipeline is empty AND the
@@ -377,12 +377,12 @@ void advance_cycle(){
     // the loop.
     CYCLE++;
     if(IS_EOF==TRUE&&NR_ROB==0){
-        return false;
+        return 0;
     }
-    return true;
+    return 1;
 }
 
-void init(){
+void init(void){
     CYCLE=0;
     CURRENT_PC=0;
     FETCH_BIT=TRUE;
@@ -399,15 +399,19 @@ void init(){
     NR_IQ=0;
     NR_ROB=0;
 
+    Operation_Cycle[0]=1;
+    Operation_Cycle[1]=2;
+    Operation_Cycle[2]=5;
+
     Free_List.count=0;
-    DE=(DE*)malloc(sizeof(DE)*WIDTH);
-    RN=(RN*)malloc(sizeof(RN)*WIDTH);
-    DI=(DI*)malloc(sizeof(DI)*WIDTH);
-    RR=(RR*)malloc(sizeof(RR)*WIDTH);
-    execute_list=(execute_list*)malloc(sizeof(execute_list)*WIDTH*5);
-    WB=(WB*)malloc(sizeof(WB)*WIDTH*5);
-    IQ=(IQ*)malloc(sizeof(IQ)*IQ_SIZE);
-    ROB=(ROB*)malloc(sizeof(ROB)*ROB_SIZE);
+    DE=(DECODE*)malloc(sizeof(DECODE)*WIDTH);
+    RN=(RENAME*)malloc(sizeof(RENAME)*WIDTH);
+    DI=(DISPATCH*)malloc(sizeof(DISPATCH)*WIDTH);
+    RR=(REGISTERREAD*)malloc(sizeof(REGISTERREAD)*WIDTH);
+    execute_list=(EXECUTE*)malloc(sizeof(EXECUTE)*WIDTH*5);
+    WB=(WRITEBACK*)malloc(sizeof(WRITEBACK)*WIDTH*5);
+    IQ=(ISSUEQUEUE*)malloc(sizeof(ISSUEQUEUE)*IQ_SIZE);
+    ROB=(REORDERBUFFER*)malloc(sizeof(REORDERBUFFER)*ROB_SIZE);
     for(int i=0;i<NR_REGS;i++){
         Rename_Map_Table[i]=i;   
     }
