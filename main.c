@@ -307,6 +307,16 @@ void fetch(){
 }
 
 void advance_cycle(){
+    // advance_cycle() performs several functions.
+    // (1) It advances the simulator cycle.
+    // (2) When it becomes known that the pipeline is empty AND the
+    // trace is depleted, the function returns “false” to terminate
+    // the loop.
+    CYCLE++;
+    if(IS_EOF==TRUE||NR_ROB==0){
+        return false;
+    }
+
 
 }
 
@@ -389,14 +399,7 @@ int main(int argc, char **argv){
     fetch();
    
     }while(advance_cycle());
-                    // advance_cycle() performs several functions.
-                    // (1) It advances the simulator cycle.
-                    // (2) When it becomes known that the pipeline is empty AND the
-                    // trace is depleted, the function returns “false” to terminate
-                    // the loop.
-
-
-
+                    
     return 0;
 
 }
