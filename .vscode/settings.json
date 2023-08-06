@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "cse561sim.h": "c",
+    "stdlib.h": "c"
+  }
+}

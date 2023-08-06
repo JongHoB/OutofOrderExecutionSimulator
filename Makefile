@@ -9,8 +9,8 @@ TARGET = cse561sim
 all: $(TARGET)
 
 # Link the object file to create the executable
-$(TARGET): main.c main.h
-	$(CC) $(CFLAGS) main.c -o $(TARGET)
+$(TARGET): cse561sim.c cse561sim.h
+	$(CC) $(CFLAGS) cse561sim.c -o $(TARGET)
 
 # Clean up generated executable
 clean:

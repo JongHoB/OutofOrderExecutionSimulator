@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "main.h"
+#include "cse561sim.h"
 
 void commit(void){
     // Commit up to WIDTH consecutive “ready” instructions from
