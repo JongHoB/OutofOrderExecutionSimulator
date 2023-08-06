@@ -1,19 +1,17 @@
-#i want to build main.c and main.h to cse561sim
-
+# Compiler and compiler flags
 CC = gcc
-CFLAGS = -g -Wall -Wextra -Werror -pedantic -std=c99
-LDFLAGS = -g -Wall -Wextra -Werror -pedantic -std=c99
-LDLIBS = -lm
+CFLAGS = -g -O2
 
-all: cse561sim
+# Output executable name
+TARGET = cse561sim
 
-cse561sim: main.o
-	$(CC) $(LDFLAGS) -o cse561sim main.o $(LDLIBS)
+# Default target to build the executable
+all: $(TARGET)
 
-main.o: main.c main.h
-	$(CC) $(CFLAGS) -c main.c
+# Link the object file to create the executable
+$(TARGET): main.c main.h
+	$(CC) $(CFLAGS) main.c -o $(TARGET)
 
+# Clean up generated executable
 clean:
-	rm -f *.o cse561sim
-
-
+	rm -f $(TARGET)

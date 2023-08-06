@@ -234,7 +234,7 @@ void dispatch(void){
 
 }
 
-void rename(void){
+void re_name(void){
     // If RN contains a rename bundle:
     // If either DI is not empty (cannot accept a new register-read
     // bundle) then do nothing. If DI is empty (can accept a new
@@ -458,7 +458,7 @@ int main(int argc, char **argv){
 
     dispatch();
 
-    rename();
+    re_name();
 
     decode();
     

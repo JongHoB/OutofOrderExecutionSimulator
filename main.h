@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #define NR_REGS 67
 #define MAX_PHYSICAL_REGS NR_REGS*2
 #define MAX_Free_List   MAX_PHYSICAL_REGS-NR_REGS
@@ -144,7 +140,7 @@ void execute(void);
 void regRead(void);
 void issue(void);
 void dispatch(void);
-void rename(void);
+void re_name(void);
 void decode(void);
 void fetch(void);
 int advance_cycle(void);
