@@ -20,7 +20,6 @@ typedef struct{
     int count;
     int list[MAX_PHYSICAL_REGS+1];
 }list;
-extern list Free_List;
 
 /////////////////////////////////////////////////////////
 //instructions
@@ -108,46 +107,6 @@ typedef struct{
     int Done_BIT;
 }REORDERBUFFER;
 
-
-extern DECODE *DE;
-extern RENAME *RN;
-extern DISPATCH *DI;
-extern REGISTERREAD *RR;
-extern EXECUTE *execute_list;
-extern WRITEBACK *WB;
-extern ISSUEQUEUE *IQ;
-extern REORDERBUFFER *ROB;
-
-
-extern int NR_DE;
-extern int NR_RN;
-extern int NR_DI;
-extern int NR_RR;
-extern int NR_execute_list;
-extern int NR_WB;
-extern int NR_IQ;
-extern int NR_ROB;
-
-//For tracefile
-extern FILE *tracefile;
-
-extern int CURRENT_PC;
-
-extern int WIDTH;
-extern int IQ_SIZE;
-extern int ROB_SIZE;
-
-extern int CYCLE;
-extern int FETCH_BIT;	
-extern int INSTRUCTION_COUNT;
-
-extern int IS_EOF;
-
-// Operation Cycle for Operation Types
-extern int Operation_Cycle[3];
-
-extern int Rename_Map_Table[NR_REGS+1];//Arch_Reg -> Physical_Reg
-extern int Ready_Table[MAX_PHYSICAL_REGS+1];//Physical_Reg -> yes/no
 
 void commit(void);
 void writeback(void);

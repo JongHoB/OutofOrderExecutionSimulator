@@ -3,6 +3,44 @@
 
 #include "cse561sim.h"
 
+DECODE *DE;
+RENAME *RN;
+DISPATCH *DI;
+REGISTERREAD *RR;
+EXECUTE *execute_list;
+WRITEBACK *WB;
+ISSUEQUEUE *IQ;
+REORDERBUFFER *ROB;
+
+list Free_List;
+
+int NR_DE;
+int NR_RN;
+int NR_DI;
+int NR_RR;
+int NR_execute_list;
+int NR_WB;
+int NR_IQ;
+int NR_ROB;
+
+//For tracefile
+FILE *tracefile;
+
+int WIDTH;
+int IQ_SIZE;
+int ROB_SIZE;
+
+int CYCLE;
+int INSTRUCTION_COUNT;
+
+int IS_EOF;
+
+// Operation Cycle for Operation Types
+int Operation_Cycle[3];
+
+int Rename_Map_Table[NR_REGS+1];//Arch_Reg -> Physical_Reg
+int Ready_Table[MAX_PHYSICAL_REGS+1];//Physical_Reg -> yes/no
+
 void commit(void){
     // Commit up to WIDTH consecutive “ready” instructions from
     // the head of the ROB. Note that the entry of ROB should be
@@ -376,7 +414,7 @@ int advance_cycle(void){
     // trace is depleted, the function returns “false” to terminate
     // the loop.
     CYCLE++;
-    if(IS_EOF==TRUE&&NR_ROB==0){
+    if(IS_EOF==TRUE){
         return 0;
     }
     return 1;
@@ -384,8 +422,6 @@ int advance_cycle(void){
 
 void init(void){
     CYCLE=0;
-    CURRENT_PC=0;
-    FETCH_BIT=TRUE;
     INSTRUCTION_COUNT=0;
     IS_EOF=FALSE;
 
@@ -463,7 +499,6 @@ int main(int argc, char **argv){
     decode();
     
     fetch();
-   
     }while(advance_cycle());
 
     printf("# === Simulator Command =========\n");
