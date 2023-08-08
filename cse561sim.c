@@ -268,7 +268,7 @@ void dispatch(void)
     {
         return;
     }
-    for (int i = 0; i < NR_DI; i++)
+    for (int i = 0; i < NR_ADVANCE; i++)
     {
 
         IQ[NR_IQ].inst = DI[i].inst;
@@ -365,6 +365,7 @@ void re_name(void)
                 if (ROB[j].inst == RN[i].inst)
                 {
                     ROB[j].To_Free_Reg = Rename_Map_Table[RN[i].inst->dest_register];
+                    break;
                 }
             }
 
@@ -383,7 +384,7 @@ void re_name(void)
         }
 
         DI[i].inst = RN[i].inst;
-        DI[i].inst->cycles[3] = CYCLE; // dispatch start cycle
+        DI[i].inst->cycles[3] = CYCLE + 1; // dispatch start cycle
 
         NR_DI++;
         NR_RN--;
@@ -414,7 +415,7 @@ void decode(void)
     }
 }
 
-void fetch(void)
+void fet_ch(void)
 {
     // Do nothing if
     // (1) there are no more instructions in the trace file or
@@ -563,7 +564,7 @@ int main(int argc, char **argv)
 
         decode();
 
-        fetch();
+        fet_ch();
     } while (advance_cycle());
 
     printf("# === Simulator Command =========\n");
