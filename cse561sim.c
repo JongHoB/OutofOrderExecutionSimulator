@@ -24,6 +24,8 @@ int NR_WB;
 int NR_IQ;
 int NR_ROB;
 
+int birthday=0;
+
 // For tracefile
 FILE *tracefile;
 
@@ -47,80 +49,53 @@ void commit(void)
     // Commit up to WIDTH consecutive “ready” instructions from
     // the head of the ROB. Note that the entry of ROB should be
     // retired in the right order.
-    int NR_ADVANCE = NR_ROB;
-    if (NR_ADVANCE == 0)
+
+    for (int i = 0; i < WIDTH && i<NR_ROB; i++)
     {
-        return;
-    }
-    int MODIFY_BIT = -1;
-    for (int i = 0; i < WIDTH; i++)
-    {
-        if (ROB[i].Done_BIT == NO)
+        if (ROB[0].Done_BIT == NO)
         {
             break;
         }
-        if (ROB[i].inst->phy_dest_register != -1)
+        if (ROB[0].inst->phy_dest_register != -1)
         {
-            Free_List.list[Free_List.count++] = ROB[i].To_Free_Reg;
+            Free_List.list[Free_List.count++] = ROB[0].To_Free_Reg;
         }
         ROB[i].inst->cycles[9] = CYCLE + 1; // end cycle
 
         printf("%d fu{%d} src{%d,%d} dst{%d} FE{%d,%d} DE{%d,%d} RN{%d,%d} DI{%d,%d} IS{%d,%d} RR{%d,%d} EX{%d,%d} WB{%d,%d} CM{%d,%d}\n", INSTRUCTION_COUNT++, ROB[i].inst->operation_type, ROB[i].inst->src1_register, ROB[i].inst->src2_register, ROB[i].inst->dest_register, ROB[i].inst->cycles[0], ROB[i].inst->cycles[1] - ROB[i].inst->cycles[0], ROB[i].inst->cycles[1], ROB[i].inst->cycles[2] - ROB[i].inst->cycles[1], ROB[i].inst->cycles[2], ROB[i].inst->cycles[3] - ROB[i].inst->cycles[2], ROB[i].inst->cycles[3], ROB[i].inst->cycles[4] - ROB[i].inst->cycles[3], ROB[i].inst->cycles[4], ROB[i].inst->cycles[5] - ROB[i].inst->cycles[4], ROB[i].inst->cycles[5], ROB[i].inst->cycles[6] - ROB[i].inst->cycles[5], ROB[i].inst->cycles[6], ROB[i].inst->cycles[7] - ROB[i].inst->cycles[6], ROB[i].inst->cycles[7], ROB[i].inst->cycles[8] - ROB[i].inst->cycles[7], ROB[i].inst->cycles[8], ROB[i].inst->cycles[9] - ROB[i].inst->cycles[8]);
 
-        MODIFY_BIT = i;
+        for(int j=1;j<NR_ROB;j++){
+            memcpy(&ROB[j-1],&ROB[j],sizeof(REORDERBUFFER));
+        }
         NR_ROB--;
     }
 
-    // Print and Sort the ROB
-    if (MODIFY_BIT > -1)
-    {
-        REORDERBUFFER *temp = (REORDERBUFFER *)malloc(sizeof(REORDERBUFFER) * ROB_SIZE);
-        int tempidx = 0;
-        for (int i = MODIFY_BIT + 1; i <= MODIFY_BIT + NR_ROB; i++)
-        {
-            memcpy(&temp[tempidx++], &ROB[i], sizeof(REORDERBUFFER));
-        }
-        free(ROB);
-        ROB = temp;
-    }
 }
 
 void writeback(void)
 {
     // Process the writeback bundle in WB: For each instruction in
     // WB, mark the instruction as “ready” in its entry in the ROB.
-    int NR_ADVANCE = NR_WB;
-    if (NR_ADVANCE == 0)
-    {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE; i++)
+
+    for (int i = 0; i < NR_WB && i<WIDTH; i++)
     {
         for (int j = 0; j < NR_ROB; j++)
         {
             if (ROB[j].inst == WB[i].inst)
             {
                 ROB[j].Done_BIT = YES;
-                WB[i].Done_BIT = YES;
                 WB[i].inst->cycles[8] = CYCLE + 1; // commit start cycle
+
+                for(int k=i+1;k<NR_WB;k++){
+                    WB[k-1].inst=WB[k].inst;
+                }
+                NR_WB--;
                 break;
             }
         }
-        NR_WB--;
+        
     }
 
-    // sort the WB
-    WRITEBACK *temp = (WRITEBACK *)malloc(sizeof(WRITEBACK) * WIDTH * 5);
-    int tempidx = 0;
-    for (int i = 0; i < NR_ADVANCE; i++)
-    {
-        if (WB[i].Done_BIT == NO && tempidx < NR_WB)
-        {
-            memcpy(&temp[tempidx++], &WB[i], sizeof(WRITEBACK));
-        }
-    }
-    free(WB);
-    WB = temp;
 }
 
 void execute(void)
@@ -129,12 +104,7 @@ void execute(void)
     // finishing execution this cycle, and:
     // 1) Remove the instruction from the execute_list.
     // 2) Add the instruction to WB.
-    int NR_ADVANCE = NR_execute_list;
-    if (NR_ADVANCE == 0)
-    {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE && NR_WB < WIDTH * 5; i++)
+    for (int i = 0; i < NR_execute_list && i<WIDTH&&NR_WB < WIDTH * 5; i++)
     {
         if (execute_list[i].cycles > 0)
         {
@@ -142,29 +112,21 @@ void execute(void)
         }
         if (execute_list[i].cycles == 0)
         {
-            WB[NR_WB].Done_BIT = NO;
             execute_list[i].inst->cycles[7] = CYCLE + 1; // writeback start cycle
             WB[NR_WB++].inst = execute_list[i].inst;
             if (IQ[i].dest != -1)
             {
                 Ready_Table[IQ[i].dest] = YES;
             }
+
+            for(int j=i+1;j<NR_execute_list;j++){
+                memcpy(&execute_list[j-1],&execute_list[j],sizeof(EXECUTE));
+            }
             NR_execute_list--;
         }
     }
 
-    // Sort the execute list
-    EXECUTE *temp = (EXECUTE *)malloc(sizeof(EXECUTE) * WIDTH * 5);
-    int tempidx = 0;
-    for (int i = 0; i < NR_ADVANCE; i++)
-    {
-        if (execute_list[i].cycles > 0 && tempidx < NR_execute_list)
-        {
-            memcpy(&temp[tempidx++], &execute_list[i], sizeof(EXECUTE));
-        }
-    }
-    free(execute_list);
-    execute_list = temp;
+
 }
 
 void regRead(void)
@@ -181,16 +143,16 @@ void regRead(void)
     // Aside from adding the instruction to the execute_list, set a
     // timer for the instruction in the execute_list that will
     // allow you to model its execution latency.
-    int NR_ADVANCE = NR_RR;
-    if (NR_ADVANCE == 0)
+
+    for (int i = 0; i < NR_RR && i<WIDTH&&NR_execute_list < WIDTH * 5; i++)
     {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE && NR_execute_list < WIDTH * 5; i++)
-    {
-        execute_list[NR_execute_list].inst = RR[i].inst;
+        execute_list[NR_execute_list].inst = RR[0].inst;
         execute_list[NR_execute_list].inst->cycles[6] = CYCLE + 1; // execute start cycle
-        execute_list[NR_execute_list++].cycles = Operation_Cycle[RR[i].inst->operation_type];
+        execute_list[NR_execute_list++].cycles = Operation_Cycle[RR[0].inst->operation_type];
+
+        for(int j=1;j<NR_RR;j++){
+            RR[j-1].inst=RR[j].inst;
+        }
         NR_RR--;
     }
 }
@@ -211,8 +173,7 @@ void issue(void)
     // ready flags) in the IQ, so that in the next cycle IQ should
     // properly handle the dependent instructions.
 
-    int NR_INSTRUCTION = NR_IQ;
-    for (int i = 0; i < NR_INSTRUCTION && NR_RR < WIDTH; i++)
+    for (int i = 0; i < NR_IQ && i<WIDTH && NR_RR < WIDTH; i++)
     {
         // Remove the instruction from the IQ
         if (IQ[i].src1_BIT == YES && IQ[i].src2_BIT == YES)
@@ -220,6 +181,10 @@ void issue(void)
             IQ[i].READY = YES;
             IQ[i].inst->cycles[5] = CYCLE + 1; // regRead start cycle
             RR[NR_RR++].inst = IQ[i].inst;
+
+            for(int j=i+1;j<NR_IQ;j++){
+                memcpy(&IQ[j-1],&IQ[j],sizeof(ISSUEQUEUE));
+            }
             NR_IQ--;
         }
         else
@@ -237,18 +202,6 @@ void issue(void)
         }
     }
 
-    // Sort the IQ
-    ISSUEQUEUE *temp = (ISSUEQUEUE *)malloc(sizeof(ISSUEQUEUE) * IQ_SIZE);
-    int tempidx = 0;
-    for (int i = 0; i < NR_INSTRUCTION; i++)
-    {
-        if (IQ[i].READY == NO && tempidx < NR_IQ)
-        {
-            memcpy(&temp[tempidx++], &IQ[i], sizeof(ISSUEQUEUE));
-        }
-    }
-    free(IQ);
-    IQ = temp;
 }
 
 void dispatch(void)
@@ -263,15 +216,14 @@ void dispatch(void)
     {
         return;
     }
-    int NR_ADVANCE = NR_DI;
-    for (int i = 0; i < NR_ADVANCE&&NR_IQ<IQ_SIZE; i++)
-    {
 
-        IQ[NR_IQ].inst = DI[i].inst;
+    for (int i = 0; i < NR_DI&& i<WIDTH && NR_IQ<IQ_SIZE; i++)
+    {
+        IQ[NR_IQ].inst = DI[0].inst;
         IQ[NR_IQ].inst->cycles[4] = CYCLE + 1; // issue start cycle
 
-        IQ[NR_IQ].src1 = DI[i].inst->phy_src1_register;
-        IQ[NR_IQ].src2 = DI[i].inst->phy_src2_register;
+        IQ[NR_IQ].src1 = DI[0].inst->phy_src1_register;
+        IQ[NR_IQ].src2 = DI[0].inst->phy_src2_register;
 
         if (IQ[NR_IQ].src1 == -1 || Ready_Table[IQ[NR_IQ].src1] == YES)
         {
@@ -291,19 +243,21 @@ void dispatch(void)
             IQ[NR_IQ].src2_BIT = NO;
         }
 
-        if (DI[i].inst->phy_dest_register != -1)
+        if (DI[0].inst->phy_dest_register != -1)
         {
-            IQ[NR_IQ].dest = DI[i].inst->phy_dest_register;
-            Ready_Table[IQ[NR_IQ].dest] = NO;
+            IQ[NR_IQ].dest = DI[0].inst->phy_dest_register;
+            Ready_Table[IQ[NR_IQ].dest] = NO;//attention
         }
         else
         {
             IQ[NR_IQ].dest = -1;
         }
 
-        IQ[NR_IQ].birthday = NR_IQ;
+        IQ[NR_IQ++].birthday = birthday++;
 
-        NR_IQ++;
+        for(int j=1;j<NR_DI;j++){
+            DI[j-1].inst=DI[j].inst;
+        }
         NR_DI--;
     }
 }
@@ -330,40 +284,43 @@ void re_name(void)
     {
         return;
     }
-    int NR_ADVANCE = NR_RN;
-    for (int i = 0; i < NR_ADVANCE&&NR_DI<WIDTH; i++)
+
+    for (int i = 0; i < NR_RN&&i<WIDTH&&NR_DI<WIDTH; i++)
     {
+        RN[0].inst->phy_src1_register=RN[0].inst->src1_register != -1?Rename_Map_Table[RN[0].inst->src1_register]:-1;
+        RN[0].inst->phy_src2_register=RN[0].inst->src2_register != -1?Rename_Map_Table[RN[0].inst->src2_register]:-1;
 
-        RN[i].inst->phy_src1_register=RN[i].inst->src1_register != -1?Rename_Map_Table[RN[i].inst->src1_register]:-1;
-        RN[i].inst->phy_src2_register=RN[i].inst->src2_register != -1?Rename_Map_Table[RN[i].inst->src2_register]:-1;
-
-        if (RN[i].inst->dest_register != -1)
+        if (RN[0].inst->dest_register != -1)
         {
             for (int j = 0; j < NR_ROB; j++)
             {
-                if (ROB[j].inst == RN[i].inst)
+                if (ROB[j].inst == RN[0].inst)
                 {
-                    ROB[j].To_Free_Reg = Rename_Map_Table[RN[i].inst->dest_register];
+                    ROB[j].To_Free_Reg = Rename_Map_Table[RN[0].inst->dest_register];
                     break;
                 }
             }
 
-            RN[i].inst->phy_dest_register = Free_List.list[0];
-            for (int i = 1; i < Free_List.count; i++)
+            RN[0].inst->phy_dest_register = Free_List.list[0];
+            for (int j = 1; j < Free_List.count; j++)
             {
-                Free_List.list[i - 1] = Free_List.list[i];
+                Free_List.list[j - 1] = Free_List.list[j];
             }
             Free_List.count--;
 
-            Rename_Map_Table[RN[i].inst->dest_register] = RN[i].inst->phy_dest_register;
+            Rename_Map_Table[RN[0].inst->dest_register] = RN[0].inst->phy_dest_register;
         }
         else
         {
-            RN[i].inst->phy_dest_register = -1;
+            RN[0].inst->phy_dest_register = -1;
         }
 
-        DI[NR_DI].inst = RN[i].inst;
+        DI[NR_DI].inst = RN[0].inst;
         DI[NR_DI++].inst->cycles[3] = CYCLE + 1; // dispatch start cycle
+
+        for(int j=1;j<NR_RN;j++){
+            RN[j-1].inst=RN[j].inst;
+        }
         NR_RN--;
     }
 }
@@ -378,15 +335,15 @@ void decode(void)
     {
         return;
     }
-    int NR_ADVANCE = NR_DE;
-    if (NR_ADVANCE == 0)
+
+    for (int i = 0; i < NR_DE&& i<WIDTH&&NR_RN<WIDTH; i++)
     {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE&&NR_RN<WIDTH; i++)
-    {
-        RN[NR_RN].inst = DE[i].inst;
+        RN[NR_RN].inst = DE[0].inst;
         RN[NR_RN++].inst->cycles[2] = CYCLE + 1; // rename start cycle
+
+        for(int j=1;j<NR_DE;j++){
+            DE[j-1].inst=DE[j].inst;
+        }
         NR_DE--;
     }
 }
@@ -493,8 +450,7 @@ void init(void)
     }
     for (int i = NR_REGS; i < MAX_PHYSICAL_REGS; i++)
     {
-        Free_List.count++;
-        Free_List.list[i - NR_REGS] = i;
+        Free_List.list[Free_List.count++] = i;
     }
 }
 

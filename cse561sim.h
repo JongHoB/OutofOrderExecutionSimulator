@@ -81,7 +81,6 @@ typedef struct
 typedef struct
 {
     instruction *inst;
-    int Done_BIT;
 } WRITEBACK;
 
 /////////////////////////////////////////////////////////
