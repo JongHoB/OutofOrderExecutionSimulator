@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "cse561sim.h"
 
@@ -77,8 +78,9 @@ void commit(void)
         int tempidx = 0;
         for (int i = MODIFY_BIT + 1; i <= MODIFY_BIT + NR_ROB; i++)
         {
-            temp[tempidx++] = ROB[i];
+            memcpy(&temp[tempidx++], &ROB[i], sizeof(REORDERBUFFER));
         }
+        free(ROB);
         ROB = temp;
     }
 }
@@ -114,9 +116,10 @@ void writeback(void)
     {
         if (WB[i].Done_BIT == NO && tempidx < NR_WB)
         {
-            temp[tempidx++] = WB[i];
+            memcpy(&temp[tempidx++], &WB[i], sizeof(WRITEBACK));
         }
     }
+    free(WB);
     WB = temp;
 }
 
@@ -157,9 +160,10 @@ void execute(void)
     {
         if (execute_list[i].cycles > 0 && tempidx < NR_execute_list)
         {
-            temp[tempidx++] = execute_list[i];
+            memcpy(&temp[tempidx++], &execute_list[i], sizeof(EXECUTE));
         }
     }
+    free(execute_list);
     execute_list = temp;
 }
 
@@ -208,10 +212,6 @@ void issue(void)
     // properly handle the dependent instructions.
 
     int NR_INSTRUCTION = NR_IQ;
-    if (NR_INSTRUCTION == 0)
-    {
-        return;
-    }
     for (int i = 0; i < NR_INSTRUCTION && NR_RR < WIDTH; i++)
     {
         // Remove the instruction from the IQ
@@ -244,10 +244,10 @@ void issue(void)
     {
         if (IQ[i].READY == NO && tempidx < NR_IQ)
         {
-            temp[tempidx++] = IQ[i];
+            memcpy(&temp[tempidx++], &IQ[i], sizeof(ISSUEQUEUE));
         }
     }
-
+    free(IQ);
     IQ = temp;
 }
 
@@ -264,11 +264,7 @@ void dispatch(void)
         return;
     }
     int NR_ADVANCE = NR_DI;
-    if (NR_ADVANCE == 0)
-    {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE; i++)
+    for (int i = 0; i < NR_ADVANCE&&NR_IQ<IQ_SIZE; i++)
     {
 
         IQ[NR_IQ].inst = DI[i].inst;
@@ -335,28 +331,11 @@ void re_name(void)
         return;
     }
     int NR_ADVANCE = NR_RN;
-    if (NR_RN == 0)
+    for (int i = 0; i < NR_ADVANCE&&NR_DI<WIDTH; i++)
     {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE; i++)
-    {
-        if (RN[i].inst->src1_register != -1)
-        {
-            RN[i].inst->phy_src1_register = Rename_Map_Table[RN[i].inst->src1_register];
-        }
-        else
-        {
-            RN[i].inst->phy_src1_register = -1;
-        }
-        if (RN[i].inst->src2_register != -1)
-        {
-            RN[i].inst->phy_src2_register = Rename_Map_Table[RN[i].inst->src2_register];
-        }
-        else
-        {
-            RN[i].inst->phy_src2_register = -1;
-        }
+
+        RN[i].inst->phy_src1_register=RN[i].inst->src1_register != -1?Rename_Map_Table[RN[i].inst->src1_register]:-1;
+        RN[i].inst->phy_src2_register=RN[i].inst->src2_register != -1?Rename_Map_Table[RN[i].inst->src2_register]:-1;
 
         if (RN[i].inst->dest_register != -1)
         {
@@ -383,10 +362,8 @@ void re_name(void)
             RN[i].inst->phy_dest_register = -1;
         }
 
-        DI[i].inst = RN[i].inst;
-        DI[i].inst->cycles[3] = CYCLE + 1; // dispatch start cycle
-
-        NR_DI++;
+        DI[NR_DI].inst = RN[i].inst;
+        DI[NR_DI++].inst->cycles[3] = CYCLE + 1; // dispatch start cycle
         NR_RN--;
     }
 }
@@ -406,12 +383,11 @@ void decode(void)
     {
         return;
     }
-    for (int i = 0; i < NR_ADVANCE; i++)
+    for (int i = 0; i < NR_ADVANCE&&NR_RN<WIDTH; i++)
     {
-        RN[i].inst = DE[i].inst;
-        RN[i].inst->cycles[2] = CYCLE + 1; // rename start cycle
+        RN[NR_RN].inst = DE[i].inst;
+        RN[NR_RN++].inst->cycles[2] = CYCLE + 1; // rename start cycle
         NR_DE--;
-        NR_RN++;
     }
 }
 
@@ -420,7 +396,7 @@ void fet_ch(void)
     // Do nothing if
     // (1) there are no more instructions in the trace file or
     // (2) DE is not empty (cannot accept a new decode bundle)
-    if (NR_DE >= WIDTH)
+    if (NR_DE)
     {
         return;
     }
@@ -449,12 +425,11 @@ void fet_ch(void)
             inst->cycles[0] = CYCLE;     // fetch start cycle
             inst->cycles[1] = CYCLE + 1; // decode start cycle
 
-            DE[NR_DE].inst = inst;
-            NR_DE++;
+            DE[NR_DE++].inst = inst;
+
 
             ROB[NR_ROB].inst = inst;
-            ROB[NR_ROB].Done_BIT = NO;
-            NR_ROB++;
+            ROB[NR_ROB++].Done_BIT = NO;
         }
         else
         {
