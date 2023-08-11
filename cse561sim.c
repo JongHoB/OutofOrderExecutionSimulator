@@ -24,7 +24,7 @@ int NR_WB;
 int NR_IQ;
 int NR_ROB;
 
-int birthday=0;
+int birthday = 0;
 
 // For tracefile
 FILE *tracefile;
@@ -49,8 +49,7 @@ void commit(void)
     // Commit up to WIDTH consecutive “ready” instructions from
     // the head of the ROB. Note that the entry of ROB should be
     // retired in the right order.
-
-    for (int i = 0; i < WIDTH && i<NR_ROB; i++)
+    for (int i = 0; i < WIDTH && NR_ROB > 0; i++)
     {
         if (ROB[0].Done_BIT == NO)
         {
@@ -64,20 +63,25 @@ void commit(void)
 
         printf("%d fu{%d} src{%d,%d} dst{%d} FE{%d,%d} DE{%d,%d} RN{%d,%d} DI{%d,%d} IS{%d,%d} RR{%d,%d} EX{%d,%d} WB{%d,%d} CM{%d,%d}\n", INSTRUCTION_COUNT++, ROB[i].inst->operation_type, ROB[i].inst->src1_register, ROB[i].inst->src2_register, ROB[i].inst->dest_register, ROB[i].inst->cycles[0], ROB[i].inst->cycles[1] - ROB[i].inst->cycles[0], ROB[i].inst->cycles[1], ROB[i].inst->cycles[2] - ROB[i].inst->cycles[1], ROB[i].inst->cycles[2], ROB[i].inst->cycles[3] - ROB[i].inst->cycles[2], ROB[i].inst->cycles[3], ROB[i].inst->cycles[4] - ROB[i].inst->cycles[3], ROB[i].inst->cycles[4], ROB[i].inst->cycles[5] - ROB[i].inst->cycles[4], ROB[i].inst->cycles[5], ROB[i].inst->cycles[6] - ROB[i].inst->cycles[5], ROB[i].inst->cycles[6], ROB[i].inst->cycles[7] - ROB[i].inst->cycles[6], ROB[i].inst->cycles[7], ROB[i].inst->cycles[8] - ROB[i].inst->cycles[7], ROB[i].inst->cycles[8], ROB[i].inst->cycles[9] - ROB[i].inst->cycles[8]);
 
-        for(int j=1;j<NR_ROB;j++){
-            memcpy(&ROB[j-1],&ROB[j],sizeof(REORDERBUFFER));
+        for (int j = 1; j < NR_ROB; j++)
+        {
+            memcpy(&ROB[j - 1], &ROB[j], sizeof(REORDERBUFFER));
         }
         NR_ROB--;
     }
-
 }
 
 void writeback(void)
 {
     // Process the writeback bundle in WB: For each instruction in
     // WB, mark the instruction as “ready” in its entry in the ROB.
+    int NR_ADVANCE = NR_WB;
+    if (NR_ADVANCE == 0)
+    {
+        return;
+    }
 
-    for (int i = 0; i < NR_WB && i<WIDTH; i++)
+    for (int i = 0; i < NR_ADVANCE && NR_WB > 0; i++)
     {
         for (int j = 0; j < NR_ROB; j++)
         {
@@ -86,16 +90,15 @@ void writeback(void)
                 ROB[j].Done_BIT = YES;
                 WB[i].inst->cycles[8] = CYCLE + 1; // commit start cycle
 
-                for(int k=i+1;k<NR_WB;k++){
-                    WB[k-1].inst=WB[k].inst;
+                for (int k = i + 1; k < NR_WB; k++)
+                {
+                    WB[k - 1].inst = WB[k].inst;
                 }
                 NR_WB--;
                 break;
             }
         }
-        
     }
-
 }
 
 void execute(void)
@@ -104,7 +107,12 @@ void execute(void)
     // finishing execution this cycle, and:
     // 1) Remove the instruction from the execute_list.
     // 2) Add the instruction to WB.
-    for (int i = 0; i < NR_execute_list && i<WIDTH&&NR_WB < WIDTH * 5; i++)
+    int NR_ADVANCE = NR_execute_list;
+    if (NR_ADVANCE == 0)
+    {
+        return;
+    }
+    for (int i = 0; i < NR_ADVANCE && NR_execute_list > 0 && NR_WB < WIDTH * 5; i++)
     {
         if (execute_list[i].cycles > 0)
         {
@@ -119,14 +127,13 @@ void execute(void)
                 Ready_Table[IQ[i].dest] = YES;
             }
 
-            for(int j=i+1;j<NR_execute_list;j++){
-                memcpy(&execute_list[j-1],&execute_list[j],sizeof(EXECUTE));
+            for (int j = i + 1; j < NR_execute_list; j++)
+            {
+                memcpy(&execute_list[j - 1], &execute_list[j], sizeof(EXECUTE));
             }
             NR_execute_list--;
         }
     }
-
-
 }
 
 void regRead(void)
@@ -143,15 +150,21 @@ void regRead(void)
     // Aside from adding the instruction to the execute_list, set a
     // timer for the instruction in the execute_list that will
     // allow you to model its execution latency.
+    int NR_ADVANCE = NR_RR;
+    if (NR_ADVANCE == 0)
+    {
+        return;
+    }
 
-    for (int i = 0; i < NR_RR && i<WIDTH&&NR_execute_list < WIDTH * 5; i++)
+    for (int i = 0; i < NR_ADVANCE && NR_RR > 0 && NR_execute_list < WIDTH * 5; i++)
     {
         execute_list[NR_execute_list].inst = RR[0].inst;
         execute_list[NR_execute_list].inst->cycles[6] = CYCLE + 1; // execute start cycle
         execute_list[NR_execute_list++].cycles = Operation_Cycle[RR[0].inst->operation_type];
 
-        for(int j=1;j<NR_RR;j++){
-            RR[j-1].inst=RR[j].inst;
+        for (int j = 1; j < NR_RR; j++)
+        {
+            RR[j - 1].inst = RR[j].inst;
         }
         NR_RR--;
     }
@@ -172,8 +185,9 @@ void issue(void)
     // 2) Wakeup dependent instructions (set their source operand
     // ready flags) in the IQ, so that in the next cycle IQ should
     // properly handle the dependent instructions.
+    int NR_INSTRUCTION = NR_IQ;
 
-    for (int i = 0; i < NR_IQ && i<WIDTH && NR_RR < WIDTH; i++)
+    for (int i = 0; i < NR_INSTRUCTION && NR_RR < WIDTH && NR_IQ > 0; i++)
     {
         // Remove the instruction from the IQ
         if (IQ[i].src1_BIT == YES && IQ[i].src2_BIT == YES)
@@ -182,8 +196,9 @@ void issue(void)
             IQ[i].inst->cycles[5] = CYCLE + 1; // regRead start cycle
             RR[NR_RR++].inst = IQ[i].inst;
 
-            for(int j=i+1;j<NR_IQ;j++){
-                memcpy(&IQ[j-1],&IQ[j],sizeof(ISSUEQUEUE));
+            for (int j = i + 1; j < NR_IQ; j++)
+            {
+                memcpy(&IQ[j - 1], &IQ[j], sizeof(ISSUEQUEUE));
             }
             NR_IQ--;
         }
@@ -201,7 +216,6 @@ void issue(void)
             }
         }
     }
-
 }
 
 void dispatch(void)
@@ -216,8 +230,8 @@ void dispatch(void)
     {
         return;
     }
-
-    for (int i = 0; i < NR_DI&& i<WIDTH && NR_IQ<IQ_SIZE; i++)
+    int NR_ADVANCE = NR_DI;
+    for (int i = 0; i < NR_ADVANCE && NR_IQ < IQ_SIZE && NR_DI > 0; i++)
     {
         IQ[NR_IQ].inst = DI[0].inst;
         IQ[NR_IQ].inst->cycles[4] = CYCLE + 1; // issue start cycle
@@ -246,7 +260,7 @@ void dispatch(void)
         if (DI[0].inst->phy_dest_register != -1)
         {
             IQ[NR_IQ].dest = DI[0].inst->phy_dest_register;
-            Ready_Table[IQ[NR_IQ].dest] = NO;//attention
+            Ready_Table[IQ[NR_IQ].dest] = NO; // attention
         }
         else
         {
@@ -255,8 +269,9 @@ void dispatch(void)
 
         IQ[NR_IQ++].birthday = birthday++;
 
-        for(int j=1;j<NR_DI;j++){
-            DI[j-1].inst=DI[j].inst;
+        for (int j = 1; j < NR_DI; j++)
+        {
+            DI[j - 1].inst = DI[j].inst;
         }
         NR_DI--;
     }
@@ -284,11 +299,11 @@ void re_name(void)
     {
         return;
     }
-
-    for (int i = 0; i < NR_RN&&i<WIDTH&&NR_DI<WIDTH; i++)
+    int NR_ADVANCE = NR_RN;
+    for (int i = 0; i < NR_ADVANCE && NR_DI < WIDTH && NR_RN > 0; i++)
     {
-        RN[0].inst->phy_src1_register=RN[0].inst->src1_register != -1?Rename_Map_Table[RN[0].inst->src1_register]:-1;
-        RN[0].inst->phy_src2_register=RN[0].inst->src2_register != -1?Rename_Map_Table[RN[0].inst->src2_register]:-1;
+        RN[0].inst->phy_src1_register = RN[0].inst->src1_register != -1 ? Rename_Map_Table[RN[0].inst->src1_register] : -1;
+        RN[0].inst->phy_src2_register = RN[0].inst->src2_register != -1 ? Rename_Map_Table[RN[0].inst->src2_register] : -1;
 
         if (RN[0].inst->dest_register != -1)
         {
@@ -318,8 +333,9 @@ void re_name(void)
         DI[NR_DI].inst = RN[0].inst;
         DI[NR_DI++].inst->cycles[3] = CYCLE + 1; // dispatch start cycle
 
-        for(int j=1;j<NR_RN;j++){
-            RN[j-1].inst=RN[j].inst;
+        for (int j = 1; j < NR_RN; j++)
+        {
+            RN[j - 1].inst = RN[j].inst;
         }
         NR_RN--;
     }
@@ -335,14 +351,15 @@ void decode(void)
     {
         return;
     }
-
-    for (int i = 0; i < NR_DE&& i<WIDTH&&NR_RN<WIDTH; i++)
+    int NR_ADVANCE = NR_DE;
+    for (int i = 0; i < NR_ADVANCE && NR_RN < WIDTH && NR_DE > 0; i++)
     {
         RN[NR_RN].inst = DE[0].inst;
         RN[NR_RN++].inst->cycles[2] = CYCLE + 1; // rename start cycle
 
-        for(int j=1;j<NR_DE;j++){
-            DE[j-1].inst=DE[j].inst;
+        for (int j = 1; j < NR_DE; j++)
+        {
+            DE[j - 1].inst = DE[j].inst;
         }
         NR_DE--;
     }
@@ -384,7 +401,6 @@ void fet_ch(void)
 
             DE[NR_DE++].inst = inst;
 
-
             ROB[NR_ROB].inst = inst;
             ROB[NR_ROB++].Done_BIT = NO;
         }
@@ -403,8 +419,9 @@ int advance_cycle(void)
     // (2) When it becomes known that the pipeline is empty AND the
     // trace is depleted, the function returns “false” to terminate
     // the loop.
+    printf("cycle: %d , NR_DE:%d , NR_RN: %d , NR_DI: %d , NR_RR: %d , NR_execute_list: %d , NR_WB: %d , NR_IQ: %d , NR_ROB: %d\n", CYCLE, NR_DE, NR_RN, NR_DI, NR_RR, NR_execute_list, NR_WB, NR_IQ, NR_ROB);
     CYCLE++;
-    if (IS_EOF == TRUE && NR_ROB == 0)
+    if (CYCLE > 100 || IS_EOF == TRUE && NR_ROB == 0)
     {
         return 0;
     }
