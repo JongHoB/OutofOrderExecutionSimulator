@@ -19,7 +19,7 @@
 typedef struct
 {
     int count;
-    int list[MAX_PHYSICAL_REGS + 1];
+    int list[MAX_PHYSICAL_REGS];
 } list;
 
 /////////////////////////////////////////////////////////
@@ -35,6 +35,7 @@ typedef struct
     int phy_src1_register;
     int phy_src2_register;
     int cycles[10]; // cycle time for each stage
+    int rob_idx;    // to access ROB entry
 } instruction;
 
 /////////////////////////////////////////////////////////
@@ -97,7 +98,6 @@ typedef struct
     int src2_BIT;
     int dest;
     int birthday;
-    int READY;
 } ISSUEQUEUE;
 
 // Re-order Buffer - Holds instructions from Fetch through Commit

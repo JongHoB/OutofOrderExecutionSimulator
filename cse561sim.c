@@ -41,8 +41,8 @@ int IS_EOF;
 // Operation Cycle for Operation Types
 int Operation_Cycle[3];
 
-int Rename_Map_Table[NR_REGS + 1];      // Arch_Reg -> Physical_Reg
-int Ready_Table[MAX_PHYSICAL_REGS + 1]; // Physical_Reg -> yes/no
+int Rename_Map_Table[NR_REGS];      // Arch_Reg -> Physical_Reg
+int Ready_Table[MAX_PHYSICAL_REGS]; // Physical_Reg -> yes/no
 
 void commit(void)
 {
@@ -59,13 +59,15 @@ void commit(void)
         {
             Free_List.list[Free_List.count++] = ROB[0].To_Free_Reg;
         }
-        ROB[i].inst->cycles[9] = CYCLE + 1; // end cycle
+        ROB[0].inst->cycles[9] = CYCLE + 1; // end cycle
 
-        printf("%d fu{%d} src{%d,%d} dst{%d} FE{%d,%d} DE{%d,%d} RN{%d,%d} DI{%d,%d} IS{%d,%d} RR{%d,%d} EX{%d,%d} WB{%d,%d} CM{%d,%d}\n", INSTRUCTION_COUNT++, ROB[i].inst->operation_type, ROB[i].inst->src1_register, ROB[i].inst->src2_register, ROB[i].inst->dest_register, ROB[i].inst->cycles[0], ROB[i].inst->cycles[1] - ROB[i].inst->cycles[0], ROB[i].inst->cycles[1], ROB[i].inst->cycles[2] - ROB[i].inst->cycles[1], ROB[i].inst->cycles[2], ROB[i].inst->cycles[3] - ROB[i].inst->cycles[2], ROB[i].inst->cycles[3], ROB[i].inst->cycles[4] - ROB[i].inst->cycles[3], ROB[i].inst->cycles[4], ROB[i].inst->cycles[5] - ROB[i].inst->cycles[4], ROB[i].inst->cycles[5], ROB[i].inst->cycles[6] - ROB[i].inst->cycles[5], ROB[i].inst->cycles[6], ROB[i].inst->cycles[7] - ROB[i].inst->cycles[6], ROB[i].inst->cycles[7], ROB[i].inst->cycles[8] - ROB[i].inst->cycles[7], ROB[i].inst->cycles[8], ROB[i].inst->cycles[9] - ROB[i].inst->cycles[8]);
+        printf("%d fu{%d} src{%d,%d} dst{%d} FE{%d,%d} DE{%d,%d} RN{%d,%d} DI{%d,%d} IS{%d,%d} RR{%d,%d} EX{%d,%d} WB{%d,%d} CM{%d,%d}\n", INSTRUCTION_COUNT++, ROB[0].inst->operation_type, ROB[0].inst->src1_register, ROB[0].inst->src2_register, ROB[0].inst->dest_register, ROB[0].inst->cycles[0], ROB[0].inst->cycles[1] - ROB[0].inst->cycles[0], ROB[0].inst->cycles[1], ROB[0].inst->cycles[2] - ROB[0].inst->cycles[1], ROB[0].inst->cycles[2], ROB[0].inst->cycles[3] - ROB[0].inst->cycles[2], ROB[0].inst->cycles[3], ROB[0].inst->cycles[4] - ROB[0].inst->cycles[3], ROB[0].inst->cycles[4], ROB[0].inst->cycles[5] - ROB[0].inst->cycles[4], ROB[0].inst->cycles[5], ROB[0].inst->cycles[6] - ROB[0].inst->cycles[5], ROB[0].inst->cycles[6], ROB[0].inst->cycles[7] - ROB[0].inst->cycles[6], ROB[0].inst->cycles[7], ROB[0].inst->cycles[8] - ROB[0].inst->cycles[7], ROB[0].inst->cycles[8], ROB[0].inst->cycles[9] - ROB[0].inst->cycles[8]);
 
         for (int j = 1; j < NR_ROB; j++)
         {
-            memcpy(&ROB[j - 1], &ROB[j], sizeof(REORDERBUFFER));
+            ROB[j-1]=ROB[j];
+            // memcpy(&ROB[j - 1], &ROB[j], sizeof(REORDERBUFFER));
+            ROB[j - 1].inst->rob_idx = j - 1;
         }
         NR_ROB--;
     }
@@ -76,28 +78,17 @@ void writeback(void)
     // Process the writeback bundle in WB: For each instruction in
     // WB, mark the instruction as “ready” in its entry in the ROB.
     int NR_ADVANCE = NR_WB;
-    if (NR_ADVANCE == 0)
-    {
-        return;
-    }
 
     for (int i = 0; i < NR_ADVANCE && NR_WB > 0; i++)
     {
-        for (int j = 0; j < NR_ROB; j++)
-        {
-            if (ROB[j].inst == WB[i].inst)
-            {
-                ROB[j].Done_BIT = YES;
-                WB[i].inst->cycles[8] = CYCLE + 1; // commit start cycle
+        ROB[WB[0].inst->rob_idx].Done_BIT = YES;
+        WB[0].inst->cycles[8] = CYCLE + 1; // commit start cycle
 
-                for (int k = i + 1; k < NR_WB; k++)
-                {
-                    WB[k - 1].inst = WB[k].inst;
-                }
-                NR_WB--;
-                break;
-            }
+        for (int k = 1; k < NR_WB; k++)
+        {
+            WB[k - 1]= WB[k];
         }
+        NR_WB--;
     }
 }
 
@@ -108,11 +99,8 @@ void execute(void)
     // 1) Remove the instruction from the execute_list.
     // 2) Add the instruction to WB.
     int NR_ADVANCE = NR_execute_list;
-    if (NR_ADVANCE == 0)
-    {
-        return;
-    }
-    for (int i = 0; i < NR_ADVANCE && NR_execute_list > 0 && NR_WB < WIDTH * 5; i++)
+
+    for (int i = 0; i < NR_execute_list && NR_execute_list > 0 && NR_WB < WIDTH * 5; i++)
     {
         if (execute_list[i].cycles > 0)
         {
@@ -122,16 +110,18 @@ void execute(void)
         {
             execute_list[i].inst->cycles[7] = CYCLE + 1; // writeback start cycle
             WB[NR_WB++].inst = execute_list[i].inst;
-            if (IQ[i].dest != -1)
+            if (execute_list[i].inst-> phy_dest_register!= -1)
             {
-                Ready_Table[IQ[i].dest] = YES;
+                Ready_Table[execute_list[i].inst-> phy_dest_register] = YES;
             }
 
             for (int j = i + 1; j < NR_execute_list; j++)
             {
-                memcpy(&execute_list[j - 1], &execute_list[j], sizeof(EXECUTE));
+                // memcpy(&execute_list[j - 1], &execute_list[j], sizeof(EXECUTE));
+                execute_list[j - 1]= execute_list[j];
             }
             NR_execute_list--;
+            i--;
         }
     }
 }
@@ -151,10 +141,6 @@ void regRead(void)
     // timer for the instruction in the execute_list that will
     // allow you to model its execution latency.
     int NR_ADVANCE = NR_RR;
-    if (NR_ADVANCE == 0)
-    {
-        return;
-    }
 
     for (int i = 0; i < NR_ADVANCE && NR_RR > 0 && NR_execute_list < WIDTH * 5; i++)
     {
@@ -165,6 +151,7 @@ void regRead(void)
         for (int j = 1; j < NR_RR; j++)
         {
             RR[j - 1].inst = RR[j].inst;
+            RR[j - 1] = RR[j];
         }
         NR_RR--;
     }
@@ -187,33 +174,31 @@ void issue(void)
     // properly handle the dependent instructions.
     int NR_INSTRUCTION = NR_IQ;
 
-    for (int i = 0; i < NR_INSTRUCTION && NR_RR < WIDTH && NR_IQ > 0; i++)
+    for (int i = 0; i < NR_IQ && NR_RR < WIDTH && NR_IQ > 0; i++)
     {
+        if (IQ[i].src1 != -1 && Ready_Table[IQ[i].src1] == YES)
+        {
+            IQ[i].src1_BIT = YES;
+        }
+
+        if (IQ[i].src2 != -1 && Ready_Table[IQ[i].src2] == YES)
+        {
+            IQ[i].src2_BIT = YES;
+        }
+
         // Remove the instruction from the IQ
         if (IQ[i].src1_BIT == YES && IQ[i].src2_BIT == YES)
         {
-            IQ[i].READY = YES;
             IQ[i].inst->cycles[5] = CYCLE + 1; // regRead start cycle
             RR[NR_RR++].inst = IQ[i].inst;
 
             for (int j = i + 1; j < NR_IQ; j++)
             {
-                memcpy(&IQ[j - 1], &IQ[j], sizeof(ISSUEQUEUE));
+                // memcpy(&IQ[j - 1], &IQ[j], sizeof(ISSUEQUEUE));
+                IQ[j - 1]=IQ[j];
             }
             NR_IQ--;
-        }
-        else
-        {
-            // Wakeup dependent instruction
-            IQ[i].READY = NO;
-            if (IQ[i].src1 == -1 || Ready_Table[IQ[i].src1] == YES)
-            {
-                IQ[i].src1_BIT = YES;
-            }
-            if (IQ[i].src2 == -1 || Ready_Table[IQ[i].src2] == YES)
-            {
-                IQ[i].src2_BIT = YES;
-            }
+            i--;
         }
     }
 }
@@ -239,39 +224,26 @@ void dispatch(void)
         IQ[NR_IQ].src1 = DI[0].inst->phy_src1_register;
         IQ[NR_IQ].src2 = DI[0].inst->phy_src2_register;
 
-        if (IQ[NR_IQ].src1 == -1 || Ready_Table[IQ[NR_IQ].src1] == YES)
-        {
-            IQ[NR_IQ].src1_BIT = YES;
-        }
-        else
+        IQ[NR_IQ].src1_BIT = YES;
+        IQ[NR_IQ].src2_BIT = YES;
+
+        if (IQ[NR_IQ].src1 > -1 && Ready_Table[IQ[NR_IQ].src1] == NO)
         {
             IQ[NR_IQ].src1_BIT = NO;
         }
 
-        if (IQ[NR_IQ].src2 == -1 || Ready_Table[IQ[NR_IQ].src2] == YES)
-        {
-            IQ[NR_IQ].src2_BIT = YES;
-        }
-        else
+        if (IQ[NR_IQ].src2 > -1 && Ready_Table[IQ[NR_IQ].src2] == NO)
         {
             IQ[NR_IQ].src2_BIT = NO;
         }
 
-        if (DI[0].inst->phy_dest_register != -1)
-        {
-            IQ[NR_IQ].dest = DI[0].inst->phy_dest_register;
-            Ready_Table[IQ[NR_IQ].dest] = NO; // attention
-        }
-        else
-        {
-            IQ[NR_IQ].dest = -1;
-        }
+        IQ[NR_IQ].dest = DI[0].inst->phy_dest_register;
 
         IQ[NR_IQ++].birthday = birthday++;
 
         for (int j = 1; j < NR_DI; j++)
         {
-            DI[j - 1].inst = DI[j].inst;
+            DI[j - 1] = DI[j];
         }
         NR_DI--;
     }
@@ -295,28 +267,19 @@ void re_name(void)
     // Note that the rename bundle must be renamed in program
     // order. Fortunately, the instructions in the rename bundle
     // are in program order).
-    if (NR_DI)
-    {
-        return;
-    }
+
     int NR_ADVANCE = NR_RN;
-    for (int i = 0; i < NR_ADVANCE && NR_DI < WIDTH && NR_RN > 0; i++)
+    for (int i = 0; i < NR_ADVANCE && NR_DI < WIDTH && NR_RN > 0 && Free_List.count > 0; i++)
     {
         RN[0].inst->phy_src1_register = RN[0].inst->src1_register != -1 ? Rename_Map_Table[RN[0].inst->src1_register] : -1;
         RN[0].inst->phy_src2_register = RN[0].inst->src2_register != -1 ? Rename_Map_Table[RN[0].inst->src2_register] : -1;
 
         if (RN[0].inst->dest_register != -1)
         {
-            for (int j = 0; j < NR_ROB; j++)
-            {
-                if (ROB[j].inst == RN[0].inst)
-                {
-                    ROB[j].To_Free_Reg = Rename_Map_Table[RN[0].inst->dest_register];
-                    break;
-                }
-            }
+            ROB[RN[0].inst->rob_idx].To_Free_Reg = Rename_Map_Table[RN[0].inst->dest_register];
 
             RN[0].inst->phy_dest_register = Free_List.list[0];
+            Ready_Table[RN[0].inst->phy_dest_register] = NO;
             for (int j = 1; j < Free_List.count; j++)
             {
                 Free_List.list[j - 1] = Free_List.list[j];
@@ -336,6 +299,7 @@ void re_name(void)
         for (int j = 1; j < NR_RN; j++)
         {
             RN[j - 1].inst = RN[j].inst;
+            RN[j - 1]= RN[j];
         }
         NR_RN--;
     }
@@ -347,10 +311,7 @@ void decode(void)
     // If RN is not empty (cannot accept a new rename bundle), then
     // do nothing. If RN is empty (can accept a new rename bundle),
     // then advance the decode bundle from DE to RN.
-    if (NR_RN)
-    {
-        return;
-    }
+
     int NR_ADVANCE = NR_DE;
     for (int i = 0; i < NR_ADVANCE && NR_RN < WIDTH && NR_DE > 0; i++)
     {
@@ -359,7 +320,8 @@ void decode(void)
 
         for (int j = 1; j < NR_DE; j++)
         {
-            DE[j - 1].inst = DE[j].inst;
+            //DE[j - 1].inst = DE[j].inst;
+            DE[j - 1] = DE[j];
         }
         NR_DE--;
     }
@@ -370,10 +332,7 @@ void fet_ch(void)
     // Do nothing if
     // (1) there are no more instructions in the trace file or
     // (2) DE is not empty (cannot accept a new decode bundle)
-    if (NR_DE)
-    {
-        return;
-    }
+
     if (IS_EOF)
     {
         return;
@@ -402,6 +361,7 @@ void fet_ch(void)
             DE[NR_DE++].inst = inst;
 
             ROB[NR_ROB].inst = inst;
+            inst->rob_idx = NR_ROB;
             ROB[NR_ROB++].Done_BIT = NO;
         }
         else
@@ -418,13 +378,12 @@ int advance_cycle(void)
     // (1) It advances the simulator cycle.
     // (2) When it becomes known that the pipeline is empty AND the
     // trace is depleted, the function returns “false” to terminate
-    // the loop.
-    printf("cycle: %d , NR_DE:%d , NR_RN: %d , NR_DI: %d , NR_RR: %d , NR_execute_list: %d , NR_WB: %d , NR_IQ: %d , NR_ROB: %d\n", CYCLE, NR_DE, NR_RN, NR_DI, NR_RR, NR_execute_list, NR_WB, NR_IQ, NR_ROB);
-    CYCLE++;
-    if (CYCLE > 100 || IS_EOF == TRUE && NR_ROB == 0)
+    // the loop. 
+    if (IS_EOF == TRUE && NR_ROB == 0)
     {
         return 0;
     }
+    CYCLE++;
     return 1;
 }
 
@@ -443,6 +402,8 @@ void init(void)
     NR_WB = 0;
     NR_IQ = 0;
     NR_ROB = 0;
+
+    Free_List.count = 0;
 
     Operation_Cycle[0] = 1;
     Operation_Cycle[1] = 2;
@@ -519,12 +480,12 @@ int main(int argc, char **argv)
     printf("# ./cse561sim %d %d %d %s\n", ROB_SIZE, IQ_SIZE, WIDTH, argv[4]);
     printf("# === Processor Configuration ===\n");
     printf("# ROB_SIZE = %d\n", ROB_SIZE);
-    printf("# IQ_SIZE = %d\n", IQ_SIZE);
-    printf("# WIDTH = %d\n", WIDTH);
+    printf("# IQ_SIZE  = %d\n", IQ_SIZE);
+    printf("# WIDTH    = %d\n", WIDTH);
     printf("# === Simulation Results ========\n");
     printf("# Dynamic Instruction Count = %d\n", INSTRUCTION_COUNT);
-    printf("# Cycles = %d\n", CYCLE);
-    printf("# Instructions Per Cycle (IPC) = %.2f\n", (double)INSTRUCTION_COUNT / (double)CYCLE);
+    printf("# Cycles                    = %d\n", CYCLE);
+    printf("# Instructions Per Cycle    = %.2f\n", (double)INSTRUCTION_COUNT / (double)CYCLE);
 
     return 0;
 }
