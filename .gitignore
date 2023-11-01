@@ -2,3 +2,6 @@
 cse561sim
 scope
 test
+.vscode
+*.dSYM/
+.DS_Store
